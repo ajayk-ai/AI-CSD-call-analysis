@@ -1,3 +1,4 @@
+import { RunAnalysisButton } from '../dashboard/RunAnalysisButton';
 import './DashboardHeader.css';
 
 interface DashboardHeaderProps {
@@ -18,6 +19,8 @@ export function DashboardHeader({ totalCalls }: DashboardHeaderProps) {
         </div>
       </div>
       <div className="dashboard-header__right">
+        <RunAnalysisButton />
+        <div className="dashboard-header__divider" />
         <div className="dashboard-header__icon" aria-hidden="true">
           🎧
         </div>

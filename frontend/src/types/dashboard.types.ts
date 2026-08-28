@@ -58,20 +58,6 @@ export interface RankedIssueRow {
   icon: string;
 }
 
-export interface PositiveThemeRow {
-  rank: number;
-  theme: string;
-  count: number;
-  percentage: number;
-  icon: string;
-}
-
-export interface KpiTarget {
-  icon: string;
-  label: string;
-  value: string;
-}
-
 export interface DashboardData {
   totalCallsAnalyzed: number;
   usableCalls: number;
@@ -84,7 +70,4 @@ export interface DashboardData {
   dailyRatings: DailyRating[];
   topIssues: RankedIssueRow[];
   topServiceIssues: RankedIssueRow[];
-  positiveThemes: PositiveThemeRow[];
-  kpiTargets: KpiTarget[];
-  bottomLine: string;
 }

@@ -164,24 +164,4 @@ export const dashboardData: DashboardData = {
     { rank: 7, category: 'Engine Performance Issues', count: 7, percentage: 6.25, example: '"Engine power low" / "Start problem"', icon: '🏎️' },
     { rank: 8, category: 'Other Mechanical Issues', count: 16, percentage: 14.29, example: '"Clutch issue" / "Other parts failure"', icon: '🔧' },
   ],
-
-  positiveThemes: [
-    { rank: 1, theme: 'Technician Behavior', count: 57, percentage: 25.57, icon: '✅' },
-    { rank: 2, theme: 'Dealer Support', count: 42, percentage: 18.83, icon: '✅' },
-    { rank: 3, theme: 'Problem Resolved', count: 40, percentage: 17.86, icon: '✅' },
-    { rank: 4, theme: 'Communication', count: 34, percentage: 15.18, icon: '✅' },
-    { rank: 5, theme: 'Overall Satisfaction / Trust', count: 50, percentage: 22.32, icon: '✅' },
-  ],
-
-  kpiTargets: [
-    { icon: '⏱️', label: 'First Response Time', value: '< 15 Minutes' },
-    { icon: '📅', label: 'Complaint Closure TAT', value: '< 24 Hours' },
-    { icon: '✅', label: 'First Time Fix Rate', value: '> 90%' },
-    { icon: '🔁', label: 'Repeat Complaint %', value: '< 5%' },
-    { icon: '🙂', label: 'Customer Satisfaction Score', value: '> 8 / 10' },
-    { icon: '📞', label: 'Callback Compliance', value: '100%' },
-  ],
-
-  bottomLine:
-    'Discipline in communication, follow-up and ownership will significantly improve overall customer satisfaction and trust.',
 };

@@ -6,9 +6,6 @@ import { SatisfactionRating } from './components/dashboard/SatisfactionRating';
 import { TrendComparison } from './components/dashboard/TrendComparison';
 import { IssueAnalysisTable } from './components/dashboard/IssueAnalysisTable';
 import { ServiceIssuesTable } from './components/dashboard/ServiceIssuesTable';
-import { PositiveThemesTable } from './components/dashboard/PositiveThemesTable';
-import { KpiTargetsBar } from './components/dashboard/KpiTargetsBar';
-import { BottomLineBanner } from './components/dashboard/BottomLineBanner';
 import { dashboardData } from './data/mockData';
 
 function App() {
@@ -29,15 +26,9 @@ function App() {
         <TrendComparison monthlyAverages={data.monthlyAverages} dailyRatings={data.dailyRatings} />
       </div>
 
-      <div className="dashboard__row dashboard__row--three">
+      <div className="dashboard__row dashboard__row--two">
         <IssueAnalysisTable rows={data.topIssues} usableCalls={data.usableCalls} />
         <ServiceIssuesTable rows={data.topServiceIssues} usableCalls={data.usableCalls} />
-        <PositiveThemesTable rows={data.positiveThemes} usableCalls={data.usableCalls} />
-      </div>
-
-      <div className="dashboard__row dashboard__row--footer">
-        <KpiTargetsBar targets={data.kpiTargets} />
-        <BottomLineBanner text={data.bottomLine} />
       </div>
     </div>
   );

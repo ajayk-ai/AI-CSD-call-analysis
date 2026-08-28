@@ -1,0 +1,27 @@
+[project]
+name = "csd-call-analysis-backend"
+version = "0.1.0"
+description = "Ingests call recordings from GCS, analyzes them with Gemini (transcription + KPI/sentiment in one call), and stores results in Postgres."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "google-cloud-storage>=2.18",
+    "google-genai>=0.3",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.27",
+]
+
+[tool.uv]
+package = false

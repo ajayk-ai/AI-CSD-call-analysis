@@ -17,12 +17,8 @@
   grid-template-columns: repeat(4, 1fr);
 }
 
-.dashboard__row--three {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.dashboard__row--footer {
-  grid-template-columns: 2.2fr 1fr;
+.dashboard__row--two {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 @media (max-width: 1400px) {
@@ -31,19 +27,9 @@
   }
 }
 
-@media (max-width: 1100px) {
-  .dashboard__row--three {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .dashboard__row--footer {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 720px) {
   .dashboard__row--four,
-  .dashboard__row--three {
+  .dashboard__row--two {
     grid-template-columns: 1fr;
   }
 }

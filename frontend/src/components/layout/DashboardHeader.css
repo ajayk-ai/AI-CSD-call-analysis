@@ -71,6 +71,13 @@
   text-align: right;
 }
 
+.dashboard-header__divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border-card-strong);
+  flex-shrink: 0;
+}
+
 .dashboard-header__icon {
   font-size: 30px;
   width: 56px;
@@ -111,6 +118,19 @@
   }
 
   .dashboard-header__right {
+    text-align: left;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-header__divider {
+    display: none;
+  }
+
+  .run-analysis {
+    align-items: flex-start;
+  }
+
+  .run-analysis__status {
     text-align: left;
   }
 }
