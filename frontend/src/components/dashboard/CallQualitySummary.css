@@ -1,0 +1,48 @@
+.call-quality {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.call-quality__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.call-quality__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.call-quality__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.call-quality__legend-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.call-quality__legend-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.call-quality__legend-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}

@@ -1,0 +1,43 @@
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg-app-start: #060c1a;
+  --bg-app-end: #0a1730;
+  --bg-card: #0d1c33;
+  --bg-card-soft: #0f2138;
+  --bg-card-strong: #112544;
+  --border-card: rgba(148, 180, 226, 0.16);
+  --border-card-strong: rgba(148, 180, 226, 0.3);
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  /* Section header tints */
+  --header-panel: linear-gradient(135deg, #0b1a33 0%, #14294d 60%, #1a2f57 100%);
+  --header-red: linear-gradient(135deg, #4a1420 0%, #6d1c2c 100%);
+  --header-blue: linear-gradient(135deg, #0e2545 0%, #163863 100%);
+  --header-teal: linear-gradient(135deg, #0b2e2c 0%, #124c43 100%);
+
+  /* Semantic colors */
+  --color-good: #2ecc71;
+  --color-good-alt: #22c55e;
+  --color-warning: #f5a623;
+  --color-bad: #ef4444;
+  --color-gold: #f5a623;
+  --color-info: #3b82f6;
+
+  /* Text */
+  --text-primary: #f2f6fc;
+  --text-secondary: #9db0ce;
+  --text-muted: #6f84a8;
+
+  /* Radius / spacing */
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --gap-lg: 20px;
+  --gap-md: 14px;
+  --gap-sm: 8px;
+
+  --font-display: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+}

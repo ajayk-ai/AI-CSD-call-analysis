@@ -1,0 +1,51 @@
+.sentiment {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+}
+
+.sentiment__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sentiment__legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sentiment__emoji {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.sentiment__legend-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sentiment__legend-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.sentiment__count {
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.sentiment__description {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
