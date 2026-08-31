@@ -1,11 +1,13 @@
-"""initial schema: calls, transcripts, call_analysis, issue_mentions
+"""initial schema: calls, transcripts, call_analysis, issue_mentions, mention_categories
 
 Revision ID: 0001_initial_schema
 Revises:
 Create Date: 2026-08-28
 
 """
+import uuid
 from collections.abc import Sequence
+from datetime import datetime, timezone
 
 import sqlalchemy as sa
 from alembic import op
@@ -107,8 +109,93 @@ def upgrade() -> None:
     op.create_index("ix_issue_mentions_call_id", "issue_mentions", ["call_id"])
     op.create_index("ix_issue_mentions_type_category", "issue_mentions", ["mention_type", "category"])
 
+    # mention_type ENUM already exists (created above for issue_mentions) —
+    # reuse it here instead of trying to CREATE TYPE a second time.
+    mention_type_enum = postgresql.ENUM(
+        "negative_driver", "service_issue", "positive_theme", name="mention_type", create_type=False
+    )
+
+    op.create_table(
+        "mention_categories",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("mention_type", mention_type_enum, nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("is_seed", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.UniqueConstraint("mention_type", "name", name="uq_mention_categories_type_name"),
+    )
+
+    _seed_categories()
+
+
+def _seed_categories() -> None:
+    """Seeds the initial category taxonomy — mirrors what
+    frontend/src/data/mockData.ts already shows. This is the starting point
+    only: app/services/category_service.py adds to this table at runtime as
+    Gemini encounters cases that don't fit any existing category, so the
+    list is expected to grow past what's seeded here."""
+    mention_categories = sa.table(
+        "mention_categories",
+        sa.column("id", postgresql.UUID(as_uuid=True)),
+        # Must be the real ENUM type, not String: Postgres will not implicitly
+        # cast varchar -> enum in a parameterized INSERT, so declaring this as
+        # sa.String() fails with "column is of type mention_type but
+        # expression is of type character varying".
+        sa.column(
+            "mention_type",
+            postgresql.ENUM(
+                "negative_driver", "service_issue", "positive_theme",
+                name="mention_type", create_type=False,
+            ),
+        ),
+        sa.column("name", sa.String()),
+        sa.column("is_seed", sa.Boolean()),
+        sa.column("created_at", sa.DateTime(timezone=True)),
+    )
+
+    negative_drivers = [
+        "Delay in Service Response",
+        "Repeat Issue After Service",
+        "Spare Parts Delay",
+        "Poor Follow-up / No Updates",
+        "Installation / Delivery Issues",
+        "Other Issues (AC, Electrical, GPS, etc.)",
+    ]
+    service_issues = [
+        "Hydraulic Issues",
+        "Oil Leakage",
+        "Transmission Issues",
+        "AC / Cooling Problems",
+        "Electrical / Wiring / GPS Issues",
+        "Pipe / Hose Leakage / Burst",
+        "Engine Performance Issues",
+        "Other Mechanical Issues",
+    ]
+    positive_themes = [
+        "Technician Behavior",
+        "Dealer Support",
+        "Problem Resolved",
+        "Communication",
+        "Overall Satisfaction / Trust",
+    ]
+
+    now = datetime.now(timezone.utc)
+    rows = [
+        {"id": uuid.uuid4(), "mention_type": "negative_driver", "name": name, "is_seed": True, "created_at": now}
+        for name in negative_drivers
+    ] + [
+        {"id": uuid.uuid4(), "mention_type": "service_issue", "name": name, "is_seed": True, "created_at": now}
+        for name in service_issues
+    ] + [
+        {"id": uuid.uuid4(), "mention_type": "positive_theme", "name": name, "is_seed": True, "created_at": now}
+        for name in positive_themes
+    ]
+
+    op.bulk_insert(mention_categories, rows)
+
 
 def downgrade() -> None:
+    op.drop_table("mention_categories")
     op.drop_table("issue_mentions")
     op.drop_table("call_analysis")
     op.drop_table("transcripts")

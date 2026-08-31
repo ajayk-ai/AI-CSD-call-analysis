@@ -8,13 +8,16 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "google-cloud-storage>=2.18",
-    "google-genai>=0.3",
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.2",
     "alembic>=1.13",
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
     "python-dotenv>=1.0",
+    "langgraph>=1.2.11",
+    "langchain-google-genai>=4.3.7",
+    "langchain-core>=1.6.1",
+    "truststore>=0.10.4",
 ]
 
 [dependency-groups]
@@ -22,6 +25,11 @@ dev = [
     "pytest>=8.3",
     "httpx>=0.27",
 ]
+
+[tool.pytest.ini_options]
+# Lets tests import the `app` package without installing the project.
+pythonpath = ["."]
+testpaths = ["tests"]
 
 [tool.uv]
 package = false

@@ -88,3 +88,9 @@
   border-radius: 4px;
   min-width: 4px;
 }
+
+.ranked-table__example--none {
+  font-style: normal;
+  color: var(--text-muted);
+  opacity: 0.7;
+}

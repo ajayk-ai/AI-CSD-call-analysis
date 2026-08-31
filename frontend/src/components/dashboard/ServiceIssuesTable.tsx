@@ -1,54 +1,25 @@
-import { Card } from '../common/Card';
-import { RankedTable, type RankedTableColumn } from '../common/RankedTable';
-import type { RankedIssueRow } from '../../types/dashboard.types';
+import { RankedIssuesCard } from './RankedIssuesCard';
+import type { DashboardSummary } from '../../services/api';
 
 interface ServiceIssuesTableProps {
-  rows: RankedIssueRow[];
-  usableCalls: number;
+  data: DashboardSummary | null;
+  error?: string;
 }
 
-export function ServiceIssuesTable({ rows, usableCalls }: ServiceIssuesTableProps) {
-  const total = rows.reduce((sum, row) => sum + row.count, 0);
-
-  const columns: RankedTableColumn<RankedIssueRow>[] = [
-    { key: 'rank', header: 'Rank', width: '40px', render: (row) => <span className="ranked-table__rank">{row.rank}</span> },
-    {
-      key: 'category',
-      header: 'Service / Machine Issue',
-      width: '24%',
-      render: (row) => (
-        <span className="ranked-table__category">
-          <span>{row.icon}</span> {row.category}
-        </span>
-      ),
-    },
-    { key: 'count', header: 'No. of Calls', align: 'right', width: '70px', render: (row) => row.count },
-    { key: 'pct', header: '%', align: 'right', width: '60px', render: (row) => `${row.percentage.toFixed(2)}%` },
-    {
-      key: 'example',
-      header: 'Example from Transcripts',
-      render: (row) => <span className="ranked-table__example">{row.example}</span>,
-    },
-  ];
-
+export function ServiceIssuesTable({ data, error }: ServiceIssuesTableProps) {
   return (
-    <Card
+    <RankedIssuesCard
       title="Top Service / Machine Issues Reported"
-      subtitle={`Based on ${usableCalls} Usable Calls`}
+      categoryHeader="Service / Machine Issue"
+      totalLabel="Total Issue Mentions"
       icon="🛠️"
       variant="blue"
-    >
-      <RankedTable
-        columns={columns}
-        rows={rows}
-        getRowKey={(row) => row.rank}
-        footer={[
-          { content: 'Total Issue Mentions', colSpan: 2 },
-          { content: total, align: 'right' },
-          { content: '100%', align: 'right' },
-          { content: '' },
-        ]}
-      />
-    </Card>
+      fallbackIcon="🔧"
+      rows={data?.top_service_issues ?? []}
+      data={data}
+      error={error}
+      emptyMessage="No machine issues recorded yet"
+      emptyHint="Mechanical and technical problems mentioned on calls are ranked here."
+    />
   );
 }

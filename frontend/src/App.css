@@ -33,3 +33,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Connection/error banner: shown when the summary endpoint is unreachable, so
+   the page says WHY it is empty instead of just rendering blank cards. */
+.dashboard__banner {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}

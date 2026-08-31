@@ -2,37 +2,13 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-# These category lists mirror the taxonomy already shown in the frontend
-# dashboard (frontend/src/data/mockData.ts) so real aggregated data slots
-# straight into the same ranked tables without a relabeling step.
-
-NEGATIVE_DRIVER_CATEGORIES = [
-    "Delay in Service Response",
-    "Repeat Issue After Service",
-    "Spare Parts Delay",
-    "Poor Follow-up / No Updates",
-    "Installation / Delivery Issues",
-    "Other Issues (AC, Electrical, GPS, etc.)",
-]
-
-SERVICE_ISSUE_CATEGORIES = [
-    "Hydraulic Issues",
-    "Oil Leakage",
-    "Transmission Issues",
-    "AC / Cooling Problems",
-    "Electrical / Wiring / GPS Issues",
-    "Pipe / Hose Leakage / Burst",
-    "Engine Performance Issues",
-    "Other Mechanical Issues",
-]
-
-POSITIVE_THEME_CATEGORIES = [
-    "Technician Behavior",
-    "Dealer Support",
-    "Problem Resolved",
-    "Communication",
-    "Overall Satisfaction / Trust",
-]
+# Category taxonomy (negative drivers, service/machine issues, positive
+# themes) is NOT hardcoded here — it lives in the `mention_categories` table
+# and grows over time via app/services/category_service.py. The initial seed
+# list (mirroring frontend/src/data/mockData.ts) is in the first Alembic
+# migration; from there, any new category Gemini has to invent for a call
+# gets persisted so it's offered as a reusable option on the next call. See
+# category_service.get_known_categories / register_new_categories.
 
 
 class CallQualityLabel(str, Enum):
@@ -48,7 +24,13 @@ class SentimentLabel(str, Enum):
 
 
 class IssueMentionResult(BaseModel):
-    category: str = Field(description="Must be one of the provided category labels for this mention type.")
+    category: str = Field(
+        description=(
+            "Reuse one of the existing category labels given in the prompt if it reasonably fits. "
+            "Only write a new, short, specific label if this is a genuinely new kind of case that "
+            "none of the existing ones cover."
+        )
+    )
     quote: str | None = Field(default=None, description="Short verbatim quote from the transcript, if available.")
 
 

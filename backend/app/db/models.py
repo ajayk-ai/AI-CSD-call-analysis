@@ -9,6 +9,18 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
+def _pg_enum(enum_cls: type[enum.Enum], name: str) -> Enum:
+    """Persist the member's `.value`, not its `.name`.
+
+    SQLAlchemy's Enum defaults to storing the member NAME ("GOOD_CLEAR"), but
+    every Postgres enum type in 0001_initial_schema was created with lowercase
+    labels ("good_clear") — i.e. the `.value`. Without values_callable the two
+    disagree and every insert dies with
+    `invalid input value for enum call_quality: "GOOD_CLEAR"`.
+    """
+    return Enum(enum_cls, name=name, values_callable=lambda cls: [m.value for m in cls])
+
+
 class CallStatus(str, enum.Enum):
     PENDING = "pending"
     ANALYZING = "analyzing"
@@ -47,7 +59,7 @@ class Call(Base):
     recording_date: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "2026-08-24"
     size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[CallStatus] = mapped_column(
-        Enum(CallStatus, name="call_status"), nullable=False, default=CallStatus.PENDING
+        _pg_enum(CallStatus, "call_status"), nullable=False, default=CallStatus.PENDING
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -91,8 +103,8 @@ class CallAnalysis(Base):
         UUID(as_uuid=True), ForeignKey("calls.id", ondelete="CASCADE"), nullable=False, unique=True
     )
 
-    call_quality: Mapped[CallQuality] = mapped_column(Enum(CallQuality, name="call_quality"), nullable=False)
-    sentiment: Mapped[Sentiment] = mapped_column(Enum(Sentiment, name="sentiment"), nullable=False)
+    call_quality: Mapped[CallQuality] = mapped_column(_pg_enum(CallQuality, "call_quality"), nullable=False)
+    sentiment: Mapped[Sentiment] = mapped_column(_pg_enum(Sentiment, "sentiment"), nullable=False)
     sentiment_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 1-10, matches the "Customer Satisfaction Rating" bands in the dashboard
     satisfaction_rating: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -106,6 +118,23 @@ class CallAnalysis(Base):
     call: Mapped["Call"] = relationship(back_populates="analysis")
 
 
+class MentionCategory(Base):
+    """The known category taxonomy per mention type — seeded with an initial
+    set, but not fixed: `category_service.register_new_categories` adds a row
+    here whenever Gemini classifies a call into a category that doesn't
+    already exist, so the list grows to fit new kinds of cases as they show
+    up instead of forcing everything into a stale fixed list."""
+
+    __tablename__ = "mention_categories"
+    __table_args__ = (UniqueConstraint("mention_type", "name", name="uq_mention_categories_type_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    mention_type: Mapped[MentionType] = mapped_column(_pg_enum(MentionType, "mention_type"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_seed: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class IssueMention(Base):
     """One row per (call, category) hit — negative driver, service/machine issue,
     or positive theme. Aggregating COUNT(*) GROUP BY category reproduces the
@@ -117,7 +146,7 @@ class IssueMention(Base):
     call_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("calls.id", ondelete="CASCADE"), nullable=False
     )
-    mention_type: Mapped[MentionType] = mapped_column(Enum(MentionType, name="mention_type"), nullable=False)
+    mention_type: Mapped[MentionType] = mapped_column(_pg_enum(MentionType, "mention_type"), nullable=False)
     category: Mapped[str] = mapped_column(String(255), nullable=False)
     quote: Mapped[str | None] = mapped_column(Text, nullable=True)
 

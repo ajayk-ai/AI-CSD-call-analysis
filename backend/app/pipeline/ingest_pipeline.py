@@ -1,15 +1,29 @@
 import logging
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.db.models import Call, CallAnalysis, CallStatus, IssueMention, MentionType, Transcript
+from app.db.models import (
+    Call,
+    CallAnalysis,
+    CallQuality,
+    CallStatus,
+    IssueMention,
+    MentionType,
+    Sentiment,
+    Transcript,
+)
+from app.pipeline.graph import CallAnalysisState, call_analysis_graph, prescreen_reason
 from app.schemas.analysis import CallAnalysisResult, IssueMentionResult
-from app.services import call_analysis_service, gcs_service
+from app.services import category_service, gcs_service
 
 logger = logging.getLogger(__name__)
+
+_PRESCREEN_MODEL_NAME = "prescreen (no model call)"
 
 
 @dataclass
@@ -17,7 +31,14 @@ class PipelineRunSummary:
     found_in_bucket: int = 0
     already_processed: int = 0
     newly_processed: int = 0
+    # Subset of newly_processed that never reached the model — see graph.prescreen_reason.
+    skipped_by_prescreen: int = 0
     failed: int = 0
+    # How many recordings this run was allowed to send to Gemini (None = no cap).
+    limit_applied: int | None = None
+    # Recordings still waiting after this run — what the *next* click will pick
+    # up. Non-zero means the limit stopped the run, not that the bucket is done.
+    remaining_pending: int = 0
     errors: list[str] = field(default_factory=list)
 
 
@@ -41,9 +62,9 @@ def _get_or_create_call(db: Session, blob: gcs_service.AudioBlob) -> tuple[Call,
     return call, True
 
 
-def _store_result(db: Session, call: Call, result: CallAnalysisResult, model_name: str) -> None:
-    # Clear out any previous attempt's rows (e.g. this call previously FAILED
-    # partway, or is being re-run) before writing the fresh ones.
+def _clear_previous_attempt(db: Session, call: Call) -> None:
+    """Drops rows from any earlier attempt (a call that previously FAILED
+    partway, or is being deliberately re-run) so a retry doesn't duplicate."""
     existing_transcript = db.execute(
         select(Transcript).where(Transcript.call_id == call.id)
     ).scalar_one_or_none()
@@ -57,6 +78,10 @@ def _store_result(db: Session, call: Call, result: CallAnalysisResult, model_nam
     db.query(IssueMention).filter(IssueMention.call_id == call.id).delete()
     db.flush()
 
+
+def _store_result(db: Session, call: Call, result: CallAnalysisResult, model_name: str) -> None:
+    _clear_previous_attempt(db, call)
+
     db.add(
         Transcript(
             call_id=call.id,
@@ -67,8 +92,12 @@ def _store_result(db: Session, call: Call, result: CallAnalysisResult, model_nam
     db.add(
         CallAnalysis(
             call_id=call.id,
-            call_quality=result.call_quality.value,
-            sentiment=result.sentiment.value,
+            # The model's schema enums and the DB's enums are separate types
+            # that share their string values — convert, don't pass the raw
+            # string: a mapped Enum column resolves plain strings against
+            # member *names*, which are uppercase and would not match.
+            call_quality=CallQuality(result.call_quality.value),
+            sentiment=Sentiment(result.sentiment.value),
             sentiment_summary=result.sentiment_summary,
             satisfaction_rating=result.satisfaction_rating,
             summary=result.summary,
@@ -93,48 +122,196 @@ def _store_result(db: Session, call: Call, result: CallAnalysisResult, model_nam
     _add_mentions(result.positive_themes, MentionType.POSITIVE_THEME)
 
 
-def _process_one(db: Session, call: Call) -> None:
-    call.status = CallStatus.ANALYZING
-    db.flush()
+def _store_prescreen_skip(db: Session, call: Call, reason: str) -> None:
+    """A prescreened-out call still gets an analysis row, because
+    "rejected / corrupted" is exactly the conclusion the model would have
+    reached — we just reached it for free. Recording it keeps the call
+    counted in the dashboard's call-quality breakdown instead of silently
+    vanishing from the denominator."""
+    _clear_previous_attempt(db, call)
+    db.add(
+        CallAnalysis(
+            call_id=call.id,
+            call_quality=CallQuality.REJECTED_CORRUPTED,
+            sentiment=Sentiment.NEUTRAL,
+            sentiment_summary=reason,
+            satisfaction_rating=1,
+            summary=reason,
+            model_name=_PRESCREEN_MODEL_NAME,
+        )
+    )
 
+
+@dataclass(frozen=True)
+class _CallJob:
+    """Plain snapshot of the fields the graph needs.
+
+    Worker threads must not touch ORM instances: the Session is configured
+    with expire_on_commit=True, so reading `call.bucket_name` after a commit
+    would trigger a lazy refresh against the shared Session from several
+    threads at once. Copying the primitives out on the main thread keeps the
+    workers entirely free of DB access.
+    """
+
+    bucket_name: str
+    object_name: str
+    size_bytes: int | None
+
+
+def _run_graph(job: _CallJob, known_categories: dict[MentionType, list[str]]) -> CallAnalysisState:
+    """Runs one call through the graph. Touches no DB session, so this is safe
+    to call from a worker thread."""
+    return call_analysis_graph.invoke(
+        {
+            "bucket_name": job.bucket_name,
+            "object_name": job.object_name,
+            "size_bytes": job.size_bytes,
+            "known_categories": known_categories,
+        }
+    )
+
+
+def _chunks(items: list[Call], size: int) -> list[list[Call]]:
+    return [items[i : i + size] for i in range(0, len(items), size)]
+
+
+def run_pipeline(
+    db: Session,
+    limit: int | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> PipelineRunSummary:
+    """Scans the bucket and analyzes every call that isn't already ANALYZED.
+
+    Safe to call repeatedly (e.g. from the dashboard's "Run Analysis" button):
+    already-analyzed calls are skipped, and one that failed partway last time
+    is retried.
+
+    `limit` caps how many recordings this run may **send to Gemini** — a spend
+    guard, so `limit=5` proves the whole flow for the price of five recordings
+    before committing to the full bucket. `None` falls back to
+    `settings.pipeline_run_limit`; 0 means no cap.
+
+    Objects the prescreen gates out cost nothing, so they deliberately do NOT
+    consume the budget — they ride along for free and still get recorded, which
+    keeps them in the dashboard's call-quality denominator. `limit=5` therefore
+    means "5 analyzed recordings", not "5 rows touched".
+
+    `on_progress(processed, total)` is invoked after each call is persisted,
+    so a background runner can report progress.
+
+    Calls are processed in concurrent chunks. The known-category taxonomy is
+    reloaded between chunks rather than before every single call — within a
+    chunk, a category discovered by one call isn't yet visible to its
+    siblings. That's the deliberate trade for concurrency; the taxonomy still
+    converges chunk over chunk and run over run. Set `analysis_concurrency=1`
+    for strict per-call convergence at the cost of wall-clock time.
+    """
     settings = get_settings()
-    audio_bytes = gcs_service.download_blob_bytes(call.bucket_name, call.object_name)
-    mime_type = gcs_service.mime_type_for(call.object_name)
-    result = call_analysis_service.analyze_call_audio(audio_bytes, mime_type)
-
-    _store_result(db, call, result, model_name=settings.gemini_model)
-    call.status = CallStatus.ANALYZED
-
-
-def run_pipeline(db: Session) -> PipelineRunSummary:
-    """Scans the bucket, and transcribes + analyzes every call that isn't
-    already ANALYZED. Safe to call repeatedly (e.g. from a UI "Run Analysis"
-    button) — already-analyzed calls are skipped, and a call that failed
-    partway last time is retried."""
     summary = PipelineRunSummary()
 
     blobs = gcs_service.list_audio_blobs()
     summary.found_in_bucket = len(blobs)
 
+    pending: list[Call] = []
     for blob in blobs:
         call, is_new = _get_or_create_call(db, blob)
-        db.commit()
-
         if not is_new and call.status == CallStatus.ANALYZED:
             summary.already_processed += 1
             continue
+        pending.append(call)
+    db.commit()
 
-        try:
-            _process_one(db, call)
-            db.commit()
-            summary.newly_processed += 1
-        except Exception as exc:  # noqa: BLE001 - one bad call must not stop the batch
-            db.rollback()
-            logger.exception("Failed to process %s", blob.gcs_uri)
-            call.status = CallStatus.FAILED
-            call.error_message = str(exc)[:2000]
-            db.commit()
-            summary.failed += 1
-            summary.errors.append(f"{blob.object_name}: {exc}")
+    effective_limit = settings.pipeline_run_limit if limit is None else limit
+    summary.limit_applied = effective_limit if effective_limit > 0 else None
+
+    if summary.limit_applied is not None:
+        budget = summary.limit_applied
+        selected: list[Call] = []
+        for call in pending:
+            if prescreen_reason(call.size_bytes) is not None:
+                # Free — concluded from listing metadata, no download, no model
+                # call. Never charge it against the budget.
+                selected.append(call)
+            elif budget > 0:
+                selected.append(call)
+                budget -= 1
+        # Recordings the cap deferred to the next run. (Calls that FAIL below
+        # are retried next run too, but they're reported via `failed`.)
+        summary.remaining_pending = len(pending) - len(selected)
+        pending = selected
+
+    total = len(pending)
+    if on_progress:
+        on_progress(0, total)
+
+    if not pending:
+        return summary
+
+    concurrency = max(1, settings.analysis_concurrency)
+    done = 0
+
+    for chunk in _chunks(pending, concurrency):
+        known_categories = category_service.get_known_categories(db)
+
+        for call in chunk:
+            call.status = CallStatus.ANALYZING
+        db.commit()
+
+        # Snapshot before dispatching — see _CallJob for why.
+        jobs = [_CallJob(c.bucket_name, c.object_name, c.size_bytes) for c in chunk]
+
+        if concurrency == 1:
+            outcomes = [_safe_run(jobs[0], known_categories)]
+        else:
+            with ThreadPoolExecutor(max_workers=concurrency) as executor:
+                outcomes = list(executor.map(lambda j: _safe_run(j, known_categories), jobs))
+
+        # Persist serially on this thread — the workers above never touch the
+        # Session, so there's no cross-thread sharing to get wrong.
+        for call, (state, error) in zip(chunk, outcomes):
+            if error is not None:
+                db.rollback()
+                # logger.error, not .exception — we're outside the except block
+                # that caught this; _safe_run handed the exception back to us.
+                logger.error("Failed to process %s", call.gcs_uri, exc_info=error)
+                call.status = CallStatus.FAILED
+                call.error_message = str(error)[:2000]
+                db.commit()
+                summary.failed += 1
+                summary.errors.append(f"{call.object_name}: {error}")
+                continue
+
+            try:
+                skipped_reason = state.get("skipped_reason") if state else None
+                if skipped_reason:
+                    _store_prescreen_skip(db, call, skipped_reason)
+                    summary.skipped_by_prescreen += 1
+                else:
+                    result = state["result"]
+                    category_service.register_new_categories(db, result)
+                    _store_result(db, call, result, model_name=settings.gemini_model)
+
+                call.status = CallStatus.ANALYZED
+                db.commit()
+                summary.newly_processed += 1
+            except Exception as exc:  # noqa: BLE001 - one bad call must not stop the batch
+                db.rollback()
+                logger.exception("Failed to persist %s", call.gcs_uri)
+                call.status = CallStatus.FAILED
+                call.error_message = str(exc)[:2000]
+                db.commit()
+                summary.failed += 1
+                summary.errors.append(f"{call.object_name}: {exc}")
 
     return summary
+
+
+def _safe_run(
+    job: _CallJob, known_categories: dict[MentionType, list[str]]
+) -> tuple[CallAnalysisState | None, Exception | None]:
+    """Runs the graph and captures any exception, so that one bad recording
+    doesn't tear down the whole thread pool / batch."""
+    try:
+        return _run_graph(job, known_categories), None
+    except Exception as exc:  # noqa: BLE001 - reported per call by the caller
+        return None, exc

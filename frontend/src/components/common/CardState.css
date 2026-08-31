@@ -1,0 +1,56 @@
+.card-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-sm);
+  min-height: 150px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.card-state__icon {
+  font-size: 22px;
+  opacity: 0.75;
+}
+
+.card-state__text {
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 34ch;
+}
+
+.card-state__hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  opacity: 0.8;
+  max-width: 38ch;
+}
+
+.card-state--error .card-state__text {
+  color: var(--color-bad);
+  max-width: 44ch;
+  word-break: break-word;
+}
+
+.card-state__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(148, 180, 226, 0.25);
+  border-top-color: var(--color-info);
+  border-radius: 50%;
+  animation: card-state-spin 0.8s linear infinite;
+}
+
+@keyframes card-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-state__spinner {
+    animation-duration: 2.4s;
+  }
+}

@@ -1,4 +1,9 @@
+# Ignore every .env variant (.env.local, .env.backup, ...) — a bare `.env`
+# pattern does NOT cover those, which is an easy way to commit a secret.
+# .env.example is the committed template, so it's explicitly re-included.
 .env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 .venv/
