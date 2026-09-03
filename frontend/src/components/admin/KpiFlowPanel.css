@@ -1,0 +1,154 @@
+.kpi-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kpi-flow__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-flow__node {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card-soft);
+  position: relative;
+}
+
+/* The arrow between steps — makes the list read as a flow rather than a
+   checklist, which is what it actually is. */
+.kpi-flow__node:not(:last-child)::after {
+  content: '↓';
+  position: absolute;
+  left: 24px;
+  bottom: -12px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-muted);
+  z-index: 1;
+}
+
+.kpi-flow__node--off {
+  opacity: 0.5;
+}
+
+.kpi-flow__step {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-info);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kpi-flow__node--off .kpi-flow__step {
+  background: var(--text-muted);
+}
+
+.kpi-flow__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.kpi-flow__heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 3px;
+}
+
+.kpi-flow__label {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.kpi-flow__tier {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: help;
+}
+
+.kpi-flow__tier--audio {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.kpi-flow__tier--text {
+  background: rgba(46, 204, 113, 0.16);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.36);
+}
+
+.kpi-flow__model {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  background: rgba(148, 180, 226, 0.1);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.kpi-flow__version {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.kpi-flow__description {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.kpi-flow__switch {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.kpi-flow__switch input {
+  accent-color: var(--color-info);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.kpi-flow__switch input:disabled {
+  cursor: not-allowed;
+}
+
+.kpi-flow__note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}

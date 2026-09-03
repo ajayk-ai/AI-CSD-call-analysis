@@ -1,0 +1,30 @@
+.data-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(245, 166, 35, 0.4);
+  background: rgba(245, 166, 35, 0.1);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.data-mode-banner button {
+  appearance: none;
+  border: 1px solid rgba(245, 166, 35, 0.5);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.data-mode-banner button:hover {
+  background: rgba(245, 166, 35, 0.18);
+}

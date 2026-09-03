@@ -2,6 +2,7 @@ import { Card, type CardVariant } from '../common/Card';
 import { CardState } from '../common/CardState';
 import { RankedTable, type RankedTableColumn } from '../common/RankedTable';
 import { iconForCategory } from '../../data/presentation';
+import { useKpiFilter } from '../../state/dashboardContext';
 import type { ApiSlice, DashboardSummary } from '../../services/api';
 
 /**
@@ -37,6 +38,11 @@ export function RankedIssuesCard({
   emptyHint,
   fallbackIcon,
 }: RankedIssuesCardProps) {
+  // All three issue tables share the one `category` dimension on purpose:
+  // clicking "Spare Parts Pricing" anywhere should pull up everything true
+  // about those calls, not just the table it was clicked in. The backend
+  // matches across every mention type for the same reason.
+  const { toggle, isActive } = useKpiFilter('category');
   const total = rows.reduce((sum, row) => sum + row.count, 0);
 
   // Rank is positional: the API already returns these largest-first.
@@ -70,24 +76,37 @@ export function RankedIssuesCard({
     {
       key: 'example',
       header: 'Example from Transcripts',
-      render: (row) =>
-        row.example ? (
-          <span className="ranked-table__example">"{row.example}"</span>
-        ) : (
-          <span className="ranked-table__example ranked-table__example--none">
-            No quote captured
-          </span>
-        ),
+      render: (row) => (
+        <>
+          {row.example ? (
+            <span className="ranked-table__example">"{row.example}"</span>
+          ) : (
+            <span className="ranked-table__example ranked-table__example--none">
+              No quote captured
+            </span>
+          )}
+          {row.tags.length > 0 && (
+            <span className="ranked-table__tags">
+              {row.tags.map((tag) => (
+                <span key={tag} className="ranked-table__tag">
+                  {tag}
+                </span>
+              ))}
+            </span>
+          )}
+        </>
+      ),
     },
   ];
 
+  const subtitle = data
+    ? data.filters.agent
+      ? `${data.filters.agent} — ${data.usable_calls} Usable Calls`
+      : `Based on ${data.usable_calls} Usable Calls`
+    : undefined;
+
   return (
-    <Card
-      title={title}
-      subtitle={data ? `Based on ${data.usable_calls} Usable Calls` : undefined}
-      icon={icon}
-      variant={variant}
-    >
+    <Card title={title} subtitle={subtitle} icon={icon} variant={variant}>
       {error ? (
         <CardState kind="error" message={error} />
       ) : !data ? (
@@ -99,6 +118,13 @@ export function RankedIssuesCard({
           columns={columns}
           rows={ranked}
           getRowKey={(row) => row.key}
+          onRowClick={(row) => toggle(row.key)}
+          isRowActive={(row) => isActive(row.key)}
+          rowTitle={(row) =>
+            isActive(row.key)
+              ? 'Clear this filter and show all calls again'
+              : `Filter the whole dashboard to calls mentioning ${row.label}`
+          }
           footer={[
             { content: totalLabel, colSpan: 2, align: 'left' },
             { content: total, align: 'right' },

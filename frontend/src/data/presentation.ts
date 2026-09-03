@@ -17,6 +17,21 @@ export const QUALITY_COLORS: Record<string, string> = {
   rejected_corrupted: 'var(--color-bad)',
 };
 
+export const CONNECTION_COLORS: Record<string, string> = {
+  connected: 'var(--color-good)',
+  dropped_during_call: 'var(--color-warning)',
+  dropped_at_greeting: 'var(--color-warning)',
+  no_answer_busy: 'var(--color-bad)',
+  voicemail_ivr_only: 'var(--color-bad)',
+  silent_dead_air: 'var(--color-bad)',
+};
+
+export const SCRIPT_ADHERENCE_COLORS: Record<string, string> = {
+  followed: 'var(--color-good)',
+  partial: 'var(--color-warning)',
+  not_followed: 'var(--color-bad)',
+};
+
 export interface SentimentMeta {
   emoji: string;
   color: string;
@@ -46,9 +61,11 @@ export interface BandMeta {
   color: string;
 }
 
-/** Banding matches the backend's `_satisfaction_band`: 8-10 satisfied, 1-7 not. */
+/** Banding matches the backend's `_satisfaction_band`: 9-10 satisfied, 8
+ *  borderline/"on the fence", 1-7 not satisfied. */
 export const SATISFACTION_META: Record<string, BandMeta> = {
-  '8 - 10': { tier: 'Satisfied', color: 'var(--color-good)' },
+  '9 - 10': { tier: 'Satisfied', color: 'var(--color-good)' },
+  '8': { tier: 'Borderline', color: 'var(--color-warning)' },
   '1 - 7': { tier: 'Not Satisfied', color: 'var(--color-bad)' },
 };
 
@@ -56,6 +73,14 @@ const DEFAULT_COLOR = 'var(--color-info)';
 
 export function qualityColor(key: string): string {
   return QUALITY_COLORS[key] ?? DEFAULT_COLOR;
+}
+
+export function connectionColor(key: string): string {
+  return CONNECTION_COLORS[key] ?? DEFAULT_COLOR;
+}
+
+export function scriptAdherenceColor(key: string): string {
+  return SCRIPT_ADHERENCE_COLORS[key] ?? DEFAULT_COLOR;
 }
 
 export function sentimentMeta(key: string): SentimentMeta {

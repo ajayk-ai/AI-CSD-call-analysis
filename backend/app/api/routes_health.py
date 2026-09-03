@@ -66,11 +66,15 @@ def _check_gemini() -> str:
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not set in backend/.env")
 
+    # Probes the extraction tier: it's the cheaper of the two, and it shares the
+    # same key and endpoint as the transcription model, so a failure here means
+    # the same thing for both. (See config for the two tiers.)
+    model = settings.extraction_model
     llm = ChatGoogleGenerativeAI(
-        model=settings.gemini_model, google_api_key=settings.gemini_api_key, temperature=0
+        model=model, google_api_key=settings.gemini_api_key, temperature=0
     )
     llm.invoke("Reply with the single word: ok")
-    return f"model '{settings.gemini_model}' responded"
+    return f"model '{model}' responded"
 
 
 @router.get("")
@@ -82,7 +86,10 @@ def health_check() -> dict[str, str]:
         "database": "ok",
         "gemini_api_key": "set" if settings.gemini_api_key else "missing",
         "gcs_bucket": settings.gcs_bucket_name or "missing",
-        "model": settings.gemini_model,
+        # Both tiers, since the pipeline is no longer one model (see
+        # app/pipeline/kpi_registry.py): audio transcription runs on the
+        # stronger one, every KPI node on the cheaper one.
+        "model": f"{settings.gemini_transcription_model} (audio) + {settings.extraction_model} (kpi)",
     }
 
     try:

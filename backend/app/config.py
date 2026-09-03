@@ -31,14 +31,28 @@ class Settings(BaseSettings):
     # Audio bytes are downloaded from GCS and sent to Gemini inline — get a
     # key from Google AI Studio, this doesn't use Vertex AI / GCP project auth.
     gemini_api_key: str = ""
-    # Flash-Lite: cheapest and fastest tier, picked to optimize cost/latency
-    # per your call. Bump to "gemini-3.5-flash" or "gemini-3.1-pro-preview"
-    # only if accuracy on noisy call-center audio isn't good enough.
+    # Two tiers, because the pipeline's two kinds of work have very different
+    # difficulty and very different price tags (see app/pipeline/kpi_registry.py).
+    #
+    # TRANSCRIPTION runs once per recording, on the raw audio, and is the only
+    # place a stronger model actually earns its cost: noisy call-center audio,
+    # code-mixed Hindi/English, and everything downstream is built on whatever
+    # it writes down. A transcription error is unrecoverable — no amount of
+    # cleverness in a later node gets the words back.
+    gemini_transcription_model: str = "gemini-3.5-flash"
+    # EXTRACTION runs once per KPI node, on the transcript TEXT (no audio
+    # tokens). Classifying an already-written transcript is a much easier task,
+    # so it stays on the cheapest tier — which is what makes adding a KPI or
+    # re-running one nearly free.
     #
     # NOTE: gemini-2.5-flash-lite (the original pin) is retired for new API
     # keys — it now 404s with "no longer available to new users". 3.5-flash-lite
     # is its direct replacement and the cheapest tier this key can call.
-    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_extraction_model: str = "gemini-3.5-flash-lite"
+    # Deprecated alias kept so an existing .env with GEMINI_MODEL=... keeps
+    # working. Empty = "not set"; when set it overrides the extraction tier,
+    # which is what that single setting used to drive.
+    gemini_model: str = ""
 
     # --- Cost / throughput controls ---
     # Audio smaller than this can't contain meaningful speech (your bucket has
@@ -78,6 +92,11 @@ class Settings(BaseSettings):
     database_url: str = ""
 
     @property
+    def extraction_model(self) -> str:
+        """The cheap text tier, honouring the deprecated GEMINI_MODEL alias."""
+        return self.gemini_model or self.gemini_extraction_model
+
+    @property
     def sqlalchemy_url(self) -> URL | str:
         if self.database_url:
             return self.database_url
@@ -89,6 +108,22 @@ class Settings(BaseSettings):
             port=self.db_port,
             database=self.db_name,
         )
+
+    @property
+    def libpq_dsn(self) -> str:
+        """The same database, as a plain libpq connection string.
+
+        LangGraph's PostgresSaver talks to psycopg directly rather than through
+        SQLAlchemy, so it needs the URL without the `+psycopg` dialect suffix —
+        passing SQLAlchemy's form to psycopg fails on the unknown scheme.
+        `render_as_string(hide_password=False)` is what keeps a password
+        containing URL-significant characters correctly escaped here, the same
+        way `sqlalchemy_url` does for the ORM.
+        """
+        url = self.sqlalchemy_url
+        if isinstance(url, str):
+            return url.replace("postgresql+psycopg://", "postgresql://", 1)
+        return url.set(drivername="postgresql").render_as_string(hide_password=False)
 
     # --- API / CORS (frontend dev server) ---
     cors_allow_origins: list[str] = ["http://localhost:5173"]

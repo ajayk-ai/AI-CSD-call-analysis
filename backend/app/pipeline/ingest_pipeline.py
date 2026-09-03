@@ -1,4 +1,5 @@
 import logging
+import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -12,18 +13,34 @@ from app.db.models import (
     CallAnalysis,
     CallQuality,
     CallStatus,
+    ConnectionStatus,
     IssueMention,
     MentionType,
+    ScriptAdherence,
     Sentiment,
     Transcript,
 )
-from app.pipeline.graph import CallAnalysisState, call_analysis_graph, prescreen_reason
+from app.pipeline.graph import CallAnalysisState, get_call_analysis_graph, prescreen_reason
+from app.pipeline.kpi_registry import ModelTier
 from app.schemas.analysis import CallAnalysisResult, IssueMentionResult
-from app.services import category_service, gcs_service
+from app.services import category_service, gcs_service, kpi_config_service, llm_service
 
 logger = logging.getLogger(__name__)
 
 _PRESCREEN_MODEL_NAME = "prescreen (no model call)"
+
+
+def _model_label() -> str:
+    """What goes in `call_analysis.model_name`.
+
+    A row is no longer the product of a single model, so record both tiers —
+    otherwise the audit column would name the cheap extraction model on a row
+    whose transcript came from the expensive one.
+    """
+    return (
+        f"{llm_service.model_name_for(ModelTier.TRANSCRIPTION)} (audio) + "
+        f"{llm_service.model_name_for(ModelTier.EXTRACTION)} (kpi)"
+    )
 
 
 @dataclass
@@ -86,6 +103,7 @@ def _store_result(db: Session, call: Call, result: CallAnalysisResult, model_nam
         Transcript(
             call_id=call.id,
             text=result.transcript,
+            english_text=result.transcript_english or None,
             language_code=result.language_code,
         )
     )
@@ -97,9 +115,13 @@ def _store_result(db: Session, call: Call, result: CallAnalysisResult, model_nam
             # string: a mapped Enum column resolves plain strings against
             # member *names*, which are uppercase and would not match.
             call_quality=CallQuality(result.call_quality.value),
+            connection_status=ConnectionStatus(result.connection_status.value),
             sentiment=Sentiment(result.sentiment.value),
             sentiment_summary=result.sentiment_summary,
             satisfaction_rating=result.satisfaction_rating,
+            customer_stated_rating=result.customer_stated_rating,
+            agent_name=result.agent_name,
+            script_adherence=ScriptAdherence(result.script_adherence.value),
             summary=result.summary,
             raw_model_output=result.model_dump_json(),
             model_name=model_name,
@@ -114,12 +136,14 @@ def _store_result(db: Session, call: Call, result: CallAnalysisResult, model_nam
                     mention_type=mention_type,
                     category=mention.category,
                     quote=mention.quote,
+                    tags=mention.tags,
                 )
             )
 
     _add_mentions(result.negative_drivers, MentionType.NEGATIVE_DRIVER)
     _add_mentions(result.service_issues, MentionType.SERVICE_ISSUE)
     _add_mentions(result.positive_themes, MentionType.POSITIVE_THEME)
+    _add_mentions(result.agent_compliance_issues, MentionType.AGENT_COMPLIANCE)
 
 
 def _store_prescreen_skip(db: Session, call: Call, reason: str) -> None:
@@ -133,6 +157,9 @@ def _store_prescreen_skip(db: Session, call: Call, reason: str) -> None:
         CallAnalysis(
             call_id=call.id,
             call_quality=CallQuality.REJECTED_CORRUPTED,
+            # Too small to contain speech — never became a conversation, which
+            # is exactly what silent_dead_air means for the connection KPI.
+            connection_status=ConnectionStatus.SILENT_DEAD_AIR,
             sentiment=Sentiment.NEUTRAL,
             sentiment_summary=reason,
             satisfaction_rating=1,
@@ -153,21 +180,42 @@ class _CallJob:
     workers entirely free of DB access.
     """
 
+    call_id: uuid.UUID
     bucket_name: str
     object_name: str
     size_bytes: int | None
 
 
-def _run_graph(job: _CallJob, known_categories: dict[MentionType, list[str]]) -> CallAnalysisState:
+def _run_graph(
+    job: _CallJob,
+    known_categories: dict[MentionType, list[str]],
+    enabled_keys: frozenset[str],
+) -> CallAnalysisState:
     """Runs one call through the graph. Touches no DB session, so this is safe
-    to call from a worker thread."""
-    return call_analysis_graph.invoke(
+    to call from a worker thread.
+
+    `thread_id` is the call's own id, which is what makes the checkpointer
+    useful: the same call always resumes its own state, so a re-run finds the
+    transcript already there and skips straight to whichever KPI nodes are new
+    or out of date.
+
+    `known_categories` goes through `configurable` rather than through the
+    graph's input state deliberately — it's run-scoped context that changes
+    between chunks, and putting it in state would freeze one run's taxonomy
+    into the checkpoint.
+    """
+    return get_call_analysis_graph(enabled_keys).invoke(
         {
             "bucket_name": job.bucket_name,
             "object_name": job.object_name,
             "size_bytes": job.size_bytes,
-            "known_categories": known_categories,
-        }
+        },
+        config={
+            "configurable": {
+                "thread_id": str(job.call_id),
+                "known_categories": known_categories,
+            }
+        },
     )
 
 
@@ -178,6 +226,7 @@ def _chunks(items: list[Call], size: int) -> list[list[Call]]:
 def run_pipeline(
     db: Session,
     limit: int | None = None,
+    force: bool = False,
     on_progress: Callable[[int, int], None] | None = None,
 ) -> PipelineRunSummary:
     """Scans the bucket and analyzes every call that isn't already ANALYZED.
@@ -185,6 +234,19 @@ def run_pipeline(
     Safe to call repeatedly (e.g. from the dashboard's "Run Analysis" button):
     already-analyzed calls are skipped, and one that failed partway last time
     is retried.
+
+    `force=True` re-analyzes calls that are already ANALYZED too — the
+    deliberate, manually-triggered path for backfilling new analysis fields
+    (added after a KPI is enabled or a spec's version is bumped) onto
+    historical calls.
+
+    Note what "re-analyze" now costs: the graph resumes each call from its
+    checkpoint, so a forced re-run does NOT re-download or re-transcribe
+    anything whose transcript is already stored at the current transcription
+    version — it runs only the KPI nodes that are new or stale, on the cheap
+    text tier. It is still subject to `limit`, because on a call that has never
+    been transcribed (or after a transcription version bump) the full audio
+    cost does apply.
 
     `limit` caps how many recordings this run may **send to Gemini** — a spend
     guard, so `limit=5` proves the whole flow for the price of five recordings
@@ -215,7 +277,7 @@ def run_pipeline(
     pending: list[Call] = []
     for blob in blobs:
         call, is_new = _get_or_create_call(db, blob)
-        if not is_new and call.status == CallStatus.ANALYZED:
+        if not force and not is_new and call.status == CallStatus.ANALYZED:
             summary.already_processed += 1
             continue
         pending.append(call)
@@ -250,6 +312,11 @@ def run_pipeline(
     concurrency = max(1, settings.analysis_concurrency)
     done = 0
 
+    # Read once per run, not per call: toggling a KPI mid-run would otherwise
+    # give some calls a different set of nodes than others in the same batch.
+    enabled_keys = kpi_config_service.enabled_keys(db)
+    logger.info("Analysis KPIs enabled for this run: %s", ", ".join(sorted(enabled_keys)))
+
     for chunk in _chunks(pending, concurrency):
         known_categories = category_service.get_known_categories(db)
 
@@ -258,13 +325,15 @@ def run_pipeline(
         db.commit()
 
         # Snapshot before dispatching — see _CallJob for why.
-        jobs = [_CallJob(c.bucket_name, c.object_name, c.size_bytes) for c in chunk]
+        jobs = [_CallJob(c.id, c.bucket_name, c.object_name, c.size_bytes) for c in chunk]
 
         if concurrency == 1:
-            outcomes = [_safe_run(jobs[0], known_categories)]
+            outcomes = [_safe_run(jobs[0], known_categories, enabled_keys)]
         else:
             with ThreadPoolExecutor(max_workers=concurrency) as executor:
-                outcomes = list(executor.map(lambda j: _safe_run(j, known_categories), jobs))
+                outcomes = list(
+                    executor.map(lambda j: _safe_run(j, known_categories, enabled_keys), jobs)
+                )
 
         # Persist serially on this thread — the workers above never touch the
         # Session, so there's no cross-thread sharing to get wrong.
@@ -287,13 +356,18 @@ def run_pipeline(
                     _store_prescreen_skip(db, call, skipped_reason)
                     summary.skipped_by_prescreen += 1
                 else:
-                    result = state["result"]
+                    # The graph returns plain JSON (see CallAnalysisState.result
+                    # for why); this is where it becomes a typed object again.
+                    result = CallAnalysisResult.model_validate(state["result"])
                     category_service.register_new_categories(db, result)
-                    _store_result(db, call, result, model_name=settings.gemini_model)
+                    _store_result(db, call, result, model_name=_model_label())
 
                 call.status = CallStatus.ANALYZED
                 db.commit()
                 summary.newly_processed += 1
+                done += 1
+                if on_progress:
+                    on_progress(done, total)
             except Exception as exc:  # noqa: BLE001 - one bad call must not stop the batch
                 db.rollback()
                 logger.exception("Failed to persist %s", call.gcs_uri)
@@ -307,11 +381,13 @@ def run_pipeline(
 
 
 def _safe_run(
-    job: _CallJob, known_categories: dict[MentionType, list[str]]
+    job: _CallJob,
+    known_categories: dict[MentionType, list[str]],
+    enabled_keys: frozenset[str],
 ) -> tuple[CallAnalysisState | None, Exception | None]:
     """Runs the graph and captures any exception, so that one bad recording
     doesn't tear down the whole thread pool / batch."""
     try:
-        return _run_graph(job, known_categories), None
+        return _run_graph(job, known_categories, enabled_keys), None
     except Exception as exc:  # noqa: BLE001 - reported per call by the caller
         return None, exc

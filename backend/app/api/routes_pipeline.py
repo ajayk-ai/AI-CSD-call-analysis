@@ -23,6 +23,14 @@ def trigger_pipeline_run(
             "Prescreened-out objects are free and do not count against it."
         ),
     ),
+    force: bool = Query(
+        False,
+        description=(
+            "Re-analyze calls that are already ANALYZED too, not just pending/failed ones. "
+            "For deliberately backfilling new analysis fields onto historical calls after a "
+            "prompt/schema change — still subject to `limit`."
+        ),
+    ),
 ) -> PipelineRunSummary:
     """Manually triggered from the dashboard's "Run Analysis" button.
 
@@ -32,9 +40,9 @@ def trigger_pipeline_run(
     per click and fine for this "run it on my own machine" deployment.
 
     Safe to call repeatedly: analyzed calls are skipped, so each click picks
-    up where the last one stopped.
+    up where the last one stopped — unless `force=True`.
     """
-    return run_pipeline(db, limit=limit)
+    return run_pipeline(db, limit=limit, force=force)
 
 
 @router.get("/status", response_model=PipelineStatusOut)

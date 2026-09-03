@@ -1,0 +1,105 @@
+.manual-run {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.manual-run__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.manual-run__field input {
+  background: var(--bg-card-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  font-size: 14px;
+  width: 140px;
+}
+
+.manual-run__field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.manual-run__field--checkbox input {
+  width: auto;
+  padding: 0;
+  cursor: pointer;
+}
+
+.manual-run__hint {
+  color: var(--color-warning);
+  font-size: 11.5px;
+  margin-top: -6px;
+}
+
+.manual-run__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  appearance: none;
+  border: 1px solid rgba(245, 166, 35, 0.5);
+  background: linear-gradient(135deg, #f5a623, #e08e0b);
+  color: #1a1206;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 9px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.manual-run__button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.manual-run__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.manual-run__spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(26, 18, 6, 0.35);
+  border-top-color: #1a1206;
+  animation: manual-run-spin 0.7s linear infinite;
+}
+
+@keyframes manual-run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.manual-run__status {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.manual-run__status--success {
+  color: var(--color-good);
+}
+
+.manual-run__status--error {
+  color: var(--color-bad);
+}

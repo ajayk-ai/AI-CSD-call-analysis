@@ -1,0 +1,42 @@
+.admin-page {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-page__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-page__title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.admin-page__subtitle {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.admin-page__row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.admin-page__row--single {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 900px) {
+  .admin-page__row {
+    grid-template-columns: 1fr;
+  }
+}

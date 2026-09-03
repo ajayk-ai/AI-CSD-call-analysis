@@ -45,4 +45,5 @@ def register_new_categories(db: Session, result: CallAnalysisResult) -> None:
     _register(result.negative_drivers, MentionType.NEGATIVE_DRIVER)
     _register(result.service_issues, MentionType.SERVICE_ISSUE)
     _register(result.positive_themes, MentionType.POSITIVE_THEME)
+    _register(result.agent_compliance_issues, MentionType.AGENT_COMPLIANCE)
     db.flush()

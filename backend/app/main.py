@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -7,8 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.api import routes_calls, routes_dashboard, routes_health, routes_pipeline
+from app.api import routes_admin, routes_calls, routes_dashboard, routes_health, routes_pipeline
 from app.config import get_settings
+from app.pipeline import checkpointer
+from app.services import scheduler_service
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +22,22 @@ _FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "d
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    scheduler_service.init_scheduler()
+    yield
+    scheduler_service.shutdown_scheduler()
+    # Releases the LangGraph checkpointer's connection pool; without it the
+    # process lingers on exit waiting on the pool's worker threads.
+    checkpointer.reset_checkpointer()
+
+
 app = FastAPI(
     title="CSD Call Analysis Backend",
     description="Ingests call recordings from GCS, transcribes them, runs KPI/sentiment analysis via Gemini, and stores results in Postgres.",
     version="0.1.0",
+    lifespan=_lifespan,
 )
 
 
@@ -72,6 +87,7 @@ app.include_router(routes_health.router)
 app.include_router(routes_pipeline.router)
 app.include_router(routes_calls.router)
 app.include_router(routes_dashboard.router)
+app.include_router(routes_admin.router)
 
 # --- Frontend (production build, served from this same process) --------
 # Mounted LAST and at "/" so it acts as a catch-all: FastAPI tries the routers

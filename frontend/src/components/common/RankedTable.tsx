@@ -20,6 +20,13 @@ interface RankedTableProps<T> {
   rows: T[];
   getRowKey: (row: T) => string | number;
   footer?: RankedTableFooterCell[];
+  /** Makes rows clickable — used by the issue tables to cross-filter the
+   *  dashboard by category. Omit for a plain, non-interactive table. */
+  onRowClick?: (row: T) => void;
+  /** Which row is currently the dashboard's selection, if any. */
+  isRowActive?: (row: T) => boolean;
+  /** Tooltip per row, so each table can word its own interaction. */
+  rowTitle?: (row: T) => string;
 }
 
 export function RankedTable<T>({
@@ -27,6 +34,9 @@ export function RankedTable<T>({
   rows,
   getRowKey,
   footer,
+  onRowClick,
+  isRowActive,
+  rowTitle,
 }: RankedTableProps<T>) {
   return (
     <div className="ranked-table__scroll">
@@ -42,7 +52,17 @@ export function RankedTable<T>({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={getRowKey(row)}>
+            <tr
+              key={getRowKey(row)}
+              className={[
+                onRowClick ? 'ranked-table__row--clickable' : '',
+                isRowActive?.(row) ? 'ranked-table__row--active' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              title={rowTitle?.(row)}
+            >
               {columns.map((col) => (
                 <td key={col.key} style={{ textAlign: col.align ?? 'left' }}>
                   {col.render(row)}

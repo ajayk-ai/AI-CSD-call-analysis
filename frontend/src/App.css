@@ -21,6 +21,10 @@
   grid-template-columns: repeat(2, 1fr);
 }
 
+.dashboard__row--one {
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 1400px) {
   .dashboard__row--four {
     grid-template-columns: repeat(2, 1fr);
@@ -34,6 +38,16 @@
   }
 }
 
+.dashboard__filters {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Shown whenever the global agent filter is active — a constant reminder
+   that every card below has been recontextualized, not just the ones the
+   user originally asked about. */
 /* Connection/error banner: shown when the summary endpoint is unreachable, so
    the page says WHY it is empty instead of just rendering blank cards. */
 .dashboard__banner {

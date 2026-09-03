@@ -1,0 +1,49 @@
+.agent-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-filter__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.agent-filter__select {
+  appearance: none;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card-soft);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-width: 160px;
+}
+
+.agent-filter__select:hover {
+  border-color: var(--border-card-strong);
+}
+
+.agent-filter__clear {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.agent-filter__clear:hover {
+  color: var(--text-primary);
+  background: rgba(148, 180, 226, 0.12);
+}

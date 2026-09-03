@@ -1,0 +1,37 @@
+/* A transparent affordance layered over an existing card row — it must add a
+   hover/selected state without changing the row's own layout, since every KPI
+   card lays its legend out differently. */
+.slice-toggle {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.slice-toggle:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+.slice-toggle--active {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: var(--color-info);
+}
+
+.slice-toggle--active:hover {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+.slice-toggle:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 1px;
+}

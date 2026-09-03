@@ -52,7 +52,11 @@ export function TrendComparison({ data, error }: TrendComparisonProps) {
   return (
     <Card
       title="Last 3 Months Average vs Current Month Trend"
-      subtitle={data?.current_month_label ? `Current month: ${data.current_month_label}` : undefined}
+      subtitle={
+        data?.current_month_label
+          ? `Current month: ${data.current_month_label}${data.filters.agent ? ` — ${data.filters.agent}` : ''}`
+          : undefined
+      }
       icon="📈"
     >
       {error ? (

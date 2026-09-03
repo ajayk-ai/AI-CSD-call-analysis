@@ -1,3 +1,40 @@
+.satisfaction__source {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.satisfaction__source-btn {
+  appearance: none;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card-soft);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.satisfaction__source-btn:hover {
+  border-color: var(--border-card-strong);
+  color: var(--text-primary);
+}
+
+.satisfaction__source-btn--active {
+  background: var(--color-info);
+  border-color: var(--color-info);
+  color: #ffffff;
+}
+
+.satisfaction-table__row--muted td {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .satisfaction-table {
   font-size: 12px;
   width: 100%;
@@ -36,6 +73,22 @@
   border-radius: 3px;
   margin-right: 8px;
   vertical-align: middle;
+}
+
+/* Band rows cross-filter the dashboard — same affordance as .slice-toggle on
+   the donut cards, expressed on a table row. */
+.satisfaction-table__row--clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.satisfaction-table__row--clickable:hover > td {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.satisfaction-table__row--active > td {
+  background: rgba(59, 130, 246, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.45);
 }
 
 .satisfaction-table__total-label {

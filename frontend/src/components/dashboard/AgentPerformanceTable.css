@@ -1,0 +1,45 @@
+.agent-performance__name {
+  font-weight: 700;
+}
+
+.agent-performance__name--muted {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-style: italic;
+}
+
+.agent-performance__name-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: inherit;
+  padding: 3px 10px;
+  margin: -3px -10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.agent-performance__name-btn:hover {
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--color-info);
+}
+
+.agent-performance__name-btn--active {
+  background: var(--color-info);
+  color: #ffffff;
+}
+
+.agent-performance__name-btn--active:hover {
+  background: var(--color-info);
+  color: #ffffff;
+}
+
+.agent-performance__sentiment {
+  display: flex;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
