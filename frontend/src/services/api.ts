@@ -36,6 +36,13 @@ export interface ApiSlice {
    *  IssueMention.tags on the backend) — the concrete dimension of an issue
    *  (e.g. "pricing") without changing its category. */
   tags: string[];
+  /** Issue-category rows only: how many calls raised this as praise vs. a
+   *  problem. Only set when a category genuinely appears on BOTH sides —
+   *  e.g. praised on some calls, complained about on others. */
+  positive_calls: number | null;
+  negative_calls: number | null;
+  /** Of the calls that raised it at all, the % that raised it as a problem. */
+  negative_share: number | null;
 }
 
 export interface ApiMonthlyAverage {
@@ -133,7 +140,11 @@ export interface DashboardSummary {
   total_calls: number;
   /** Recordings with an analysis row of any kind. */
   analyzed_calls: number;
-  /** Analyzed AND intelligible — the "Based on N Usable Calls" denominator. */
+  /** Analyzed and intelligible — INCLUDES busy tones and voicemails, which are
+   *  clear recordings of nothing. Only Connection Quality uses this. */
+  reachable_calls: number;
+  /** Reachable AND a customer actually spoke. The "Based on N Usable Calls"
+   *  denominator everywhere else — a busy tone has no opinion to measure. */
   usable_calls: number;
   average_rating: number | null;
   call_quality: ApiSlice[];
@@ -394,6 +405,21 @@ export interface CallFilters {
   date_from?: string;
   date_to?: string;
   search?: string;
+  /** Calls carrying a mention of this exact category, any mention type. What
+   *  the dashboard's issue tables link through to. */
+  category?: string;
+  /** Calls carrying a mention with this tag — cuts across categories. */
+  tag?: string;
+  /** How the call connected. The dashboard's KPIs exclude non-conversation
+   *  states; this is how you still get at those recordings to check them. */
+  connection_status?: string;
+  script_adherence?: string;
+  /** Restrict to calls where a customer actually spoke (see
+   *  DashboardSummary.usable_calls). Needed to keep rating_min/rating_max
+   *  review links exact — a non-conversation call's satisfaction_rating is a
+   *  meaningless placeholder that would otherwise get swept into a "1-7"
+   *  review by coincidence. */
+  conversations_only?: boolean;
 }
 
 export function fetchCalls(params: {

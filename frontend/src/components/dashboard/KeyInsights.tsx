@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Card } from '../common/Card';
 import { CardState } from '../common/CardState';
+import { OpenCallsButton } from '../common/OpenCallsButton';
 import { TimeRangeFilter } from '../common/TimeRangeFilter';
 import { iconForCategory } from '../../data/presentation';
 import { useDashboardFilters, useDataMode, useDashboardRefresh } from '../../state/dashboardContext';
-import { fetchDashboardInsights, type InsightPair } from '../../services/api';
+import { toCallFilters } from '../../state/filterMapping';
+import { fetchDashboardInsights, type DashboardFilters, type InsightPair } from '../../services/api';
 import type { TimeRangeKey } from '../../types/dashboard.types';
 import './KeyInsights.css';
 
@@ -13,7 +15,7 @@ const MENTION_TYPE_LABEL: Record<string, string> = {
   service_issue: 'service issue',
 };
 
-function InsightTile({ insight }: { insight: InsightPair }) {
+function InsightTile({ insight, filters }: { insight: InsightPair; filters: DashboardFilters }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -40,6 +42,15 @@ function InsightTile({ insight }: { insight: InsightPair }) {
               <span className="key-insights__quote-label">Issue:</span> "{insight.other_example}"
             </p>
           )}
+          <div className="key-insights__review">
+            {/* Both categories are mentions on the SAME calls, but /api/calls
+                only takes one category to match on — this opens the issue
+                side, since that's the half worth reading in full. */}
+            <OpenCallsButton
+              filters={toCallFilters(filters, { category: insight.other_category, conversations_only: true })}
+              label={`Review the ${insight.count} calls`}
+            />
+          </div>
         </div>
       )}
     </li>
@@ -104,7 +115,11 @@ export function KeyInsights() {
       ) : (
         <ul className="key-insights__list">
           {state.insights.map((insight, i) => (
-            <InsightTile key={`${insight.positive_category}-${insight.other_category}-${i}`} insight={insight} />
+            <InsightTile
+              key={`${insight.positive_category}-${insight.other_category}-${i}`}
+              insight={insight}
+              filters={filters}
+            />
           ))}
         </ul>
       )}

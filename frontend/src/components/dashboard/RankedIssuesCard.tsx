@@ -1,8 +1,11 @@
 import { Card, type CardVariant } from '../common/Card';
 import { CardState } from '../common/CardState';
+import { OpenCallsButton } from '../common/OpenCallsButton';
 import { RankedTable, type RankedTableColumn } from '../common/RankedTable';
 import { iconForCategory } from '../../data/presentation';
 import { useKpiFilter } from '../../state/dashboardContext';
+import { useNavigation } from '../../state/navigation';
+import { toCallFilters } from '../../state/filterMapping';
 import type { ApiSlice, DashboardSummary } from '../../services/api';
 
 /**
@@ -43,6 +46,7 @@ export function RankedIssuesCard({
   // about those calls, not just the table it was clicked in. The backend
   // matches across every mention type for the same reason.
   const { toggle, isActive } = useKpiFilter('category');
+  const { openCalls } = useNavigation();
   const total = rows.reduce((sum, row) => sum + row.count, 0);
 
   // Rank is positional: the API already returns these largest-first.
@@ -68,10 +72,24 @@ export function RankedIssuesCard({
     { key: 'count', header: 'No. of Calls', align: 'right', width: '70px', render: (row) => row.count },
     {
       key: 'pct',
-      header: '%',
+      header: '% of Usable',
       align: 'right',
-      width: '60px',
-      render: (row) => `${row.percentage.toFixed(2)}%`,
+      width: '75px',
+      render: (row) => `${row.percentage.toFixed(1)}%`,
+    },
+    {
+      key: 'split',
+      header: 'Praise vs. Problem',
+      align: 'right',
+      width: '110px',
+      render: (row) =>
+        row.negative_share !== null ? (
+          <span className="ranked-table__split" title={`Praised on ${row.positive_calls}, a problem on ${row.negative_calls}`}>
+            <span className="ranked-table__split-neg">{row.negative_share.toFixed(0)}% problem</span>
+          </span>
+        ) : (
+          <span className="ranked-table__split-none">—</span>
+        ),
     },
     {
       key: 'example',
@@ -88,13 +106,41 @@ export function RankedIssuesCard({
           {row.tags.length > 0 && (
             <span className="ranked-table__tags">
               {row.tags.map((tag) => (
-                <span key={tag} className="ranked-table__tag">
+                <button
+                  key={tag}
+                  type="button"
+                  className="ranked-table__tag ranked-table__tag--clickable"
+                  onClick={(e) => {
+                    // A tag click means "show me the calls", not "narrow this
+                    // dashboard" — it's a jump, not a filter toggle, so it
+                    // doesn't touch the category filter this row's click sets.
+                    e.stopPropagation();
+                    openCalls(
+                      toCallFilters(data?.filters ?? {}, {
+                        tag,
+                        category: undefined,
+                        conversations_only: true,
+                      }),
+                    );
+                  }}
+                  title={`Open the calls tagged "${tag}"`}
+                >
                   {tag}
-                </span>
+                </button>
               ))}
             </span>
           )}
         </>
+      ),
+    },
+    {
+      key: 'review',
+      header: '',
+      width: '110px',
+      render: (row) => (
+        <OpenCallsButton
+          filters={toCallFilters(data?.filters ?? {}, { category: row.key, conversations_only: true })}
+        />
       ),
     },
   ];
@@ -126,9 +172,16 @@ export function RankedIssuesCard({
               : `Filter the whole dashboard to calls mentioning ${row.label}`
           }
           footer={[
+            // No longer "100%" in the last column: percentages are now share
+            // of usable calls (see RankedIssuesCard docs), and one call can
+            // raise several issues, so the column doesn't sum to 100 — showing
+            // it as if it did would be the exact distortion this was fixed to
+            // remove elsewhere on the dashboard.
             { content: totalLabel, colSpan: 2, align: 'left' },
             { content: total, align: 'right' },
-            { content: '100%', align: 'right' },
+            { content: 'mentions', align: 'right' },
+            { content: '' },
+            { content: '' },
             { content: '' },
           ]}
         />

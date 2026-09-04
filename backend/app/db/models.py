@@ -61,6 +61,28 @@ class ConnectionStatus(str, enum.Enum):
     SILENT_DEAD_AIR = "silent_dead_air"
 
 
+#: The only two states in which a customer actually spoke to an agent.
+#:
+#: This is the single most load-bearing definition in the reporting layer, so
+#: it lives here rather than being re-spelled at each call site. A busy tone, a
+#: voicemail greeting, or a call cut off during the agent's opening produces a
+#: perfectly clear RECORDING — so `call_quality != rejected_corrupted` says yes
+#: to all of them — but there is no customer opinion on it to measure. Counting
+#: those in a satisfaction average, a sentiment split, or a script-compliance
+#: rate does not add noise, it adds fabricated data: the model has nothing to
+#: judge, returns its neutral defaults, and those defaults then dilute every
+#: real call in the denominator.
+#:
+#: Measured on the current dataset: 19 of the 90 calls previously counted as
+#: "usable" were non-conversations (15 busy tones, 3 voicemails, 1 cut off at
+#: the greeting), each contributing a neutral sentiment and a rating of 5.
+#: They pulled the average satisfaction from 6.87 down to 6.48.
+CONVERSATION_STATUSES: tuple[ConnectionStatus, ...] = (
+    ConnectionStatus.CONNECTED,
+    ConnectionStatus.DROPPED_DURING_CALL,
+)
+
+
 class ScriptAdherence(str, enum.Enum):
     FOLLOWED = "followed"
     PARTIAL = "partial"

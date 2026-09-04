@@ -25,14 +25,22 @@ def transcribe(spec: KpiSpec, audio_bytes: bytes, mime_type: str) -> Transcripti
     return result
 
 
-def extract(spec: KpiSpec, transcript: str, known_categories: dict[MentionType, list[str]]):
+def extract(
+    spec: KpiSpec,
+    transcript: str,
+    known_categories: dict[MentionType, list[str]],
+    known_tags: list[str] | None = None,
+):
     """A KPI pass over the transcript text — no audio, cheap tier.
 
     `known_categories` is the current taxonomy per mention type (from
-    category_service.get_known_categories). Feeding it in each time is what
-    makes the category list converge instead of drifting: Gemini reuses what
-    already exists whenever it fits, and only proposes something new for a
-    genuinely new kind of case. The caller persists anything new via
+    category_service.get_known_categories) and `known_tags` the tag vocabulary
+    already in use (category_service.get_known_tags). Feeding both in each time
+    is what makes them converge instead of drifting: Gemini reuses what already
+    exists whenever it fits, and only proposes something new for a genuinely
+    new kind of case. The caller persists anything new via
     category_service.register_new_categories.
     """
-    return llm_service.run_on_text(spec.schema, spec.format_prompt(transcript, known_categories))
+    return llm_service.run_on_text(
+        spec.schema, spec.format_prompt(transcript, known_categories, known_tags)
+    )

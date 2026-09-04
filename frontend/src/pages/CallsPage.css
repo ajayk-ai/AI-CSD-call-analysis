@@ -393,3 +393,37 @@ col.col--chevron { width: 32px; }
   border-color: var(--color-info);
   color: #ffffff;
 }
+
+/* Banner explaining a category/tag/connection filter seeded from a dashboard
+   "Review calls" click — these three have no dropdown of their own. */
+.calls-page__seeded-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.32);
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.08);
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+
+.calls-page__seeded-filter button {
+  appearance: none;
+  border: 1px solid var(--border-card-strong);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.calls-page__seeded-filter button:hover {
+  border-color: var(--color-info);
+  color: var(--text-primary);
+}

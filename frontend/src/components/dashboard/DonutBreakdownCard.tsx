@@ -3,9 +3,11 @@ import { Card } from '../common/Card';
 import { CardState } from '../common/CardState';
 import { ClickableSlice, sliceTitle } from '../common/ClickableSlice';
 import { DonutChart } from '../common/DonutChart';
+import { OpenCallsButton } from '../common/OpenCallsButton';
 import { TimeRangeFilter } from '../common/TimeRangeFilter';
-import type { ApiSlice, DashboardSummary, FilterKey } from '../../services/api';
+import type { ApiSlice, CallFilters, DashboardSummary, FilterKey } from '../../services/api';
 import { displayData, useDashboardSummary, useKpiFilter } from '../../state/dashboardContext';
+import { toCallFilters } from '../../state/filterMapping';
 import type { TimeRangeKey } from '../../types/dashboard.types';
 import './CallQualitySummary.css';
 
@@ -24,6 +26,12 @@ interface DonutBreakdownCardProps {
    *  so it keeps showing every slice and the selection stays changeable from
    *  here rather than collapsing to 100% of whatever was clicked. */
   filterKey: FilterKey;
+  /** How a slice's key maps onto a Calls-page filter, e.g.
+   *  `(key) => ({ connection_status: key })`. Omit for a card whose slices
+   *  aren't reviewable on the Calls page (none currently, but this keeps the
+   *  mapping local to the card that owns the dimension rather than guessed
+   *  centrally). */
+  toReviewFilters?: (key: string) => CallFilters;
   emptyMessage: string;
   emptyHint: string;
 }
@@ -46,6 +54,7 @@ export function DonutBreakdownCard({
   centerLabel,
   color,
   filterKey,
+  toReviewFilters,
   emptyMessage,
   emptyHint,
 }: DonutBreakdownCardProps) {
@@ -101,6 +110,14 @@ export function DonutBreakdownCard({
                     </span>
                   </span>
                 </ClickableSlice>
+                {toReviewFilters && (
+                  <div className="call-quality__legend-review">
+                    <OpenCallsButton
+                      filters={toCallFilters(data?.filters ?? {}, toReviewFilters(item.key))}
+                      label={`Review ${item.count}`}
+                    />
+                  </div>
+                )}
               </li>
             ))}
           </ul>

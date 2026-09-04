@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from sqlalchemy import Date, asc, cast, desc, func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.db.models import Call, CallAnalysis, plant_expr
+from app.db.models import CONVERSATION_STATUSES, Call, CallAnalysis, CallQuality, IssueMention, plant_expr
 from app.db.session import get_db
 from app.schemas.calls import CallDetailOut, CallListItemOut
 from app.services import gcs_service
@@ -54,6 +54,40 @@ def list_calls(
     date_from: date | None = Query(None, description="Inclusive; matches the same effective date as recording_date."),
     date_to: date | None = Query(None, description="Inclusive."),
     search: str | None = Query(None, description="Matches object name, team code, or the analysis summary."),
+    category: str | None = Query(
+        None,
+        description=(
+            "Only calls carrying a mention of this exact category, in any mention type. This is what the "
+            "dashboard's issue tables link to — clicking a category there opens the calls behind that number "
+            "so they can be read."
+        ),
+    ),
+    tag: str | None = Query(
+        None,
+        description=(
+            "Only calls carrying a mention with this tag. Tags cut across categories, so this finds the "
+            "same underlying problem even where it was filed under different labels."
+        ),
+    ),
+    connection_status: str | None = Query(
+        None,
+        description=(
+            "Filter by how the call connected. Note the dashboard excludes non-conversation states "
+            "(busy tone, voicemail, dead air, cut off at the greeting) from its KPIs — this is how you "
+            "still get at those recordings to check them."
+        ),
+    ),
+    script_adherence: str | None = Query(None, description="followed / partial / not_followed."),
+    conversations_only: bool = Query(
+        False,
+        description=(
+            "Restrict to the dashboard's exact 'usable_calls' set: audio clear enough to judge AND a "
+            "customer actually spoke (excludes rejected/corrupted audio, busy tones, voicemail, dead air, "
+            "and calls cut off at the greeting). Needed for rating_min/rating_max to line up with the "
+            "dashboard's satisfaction bands — a non-conversation call's rating is a meaningless placeholder, "
+            "not a real 5, and would otherwise be swept into '1-7' by mistake."
+        ),
+    ),
     data_mode: str = Query(
         "live",
         pattern="^(live|synthetic|all)$",
@@ -67,8 +101,19 @@ def list_calls(
         raise HTTPException(status_code=400, detail=f"Unknown sort_by '{sort_by}'. Must be one of: {', '.join(_SORT_COLUMNS)}")
 
     needs_analysis_join = sort_by in ("agent_name", "call_quality", "sentiment", "satisfaction_rating") or any(
-        v is not None for v in (status, call_quality, sentiment, agent_name, rating_min, rating_max, search)
-    )
+        v is not None
+        for v in (
+            status,
+            call_quality,
+            sentiment,
+            agent_name,
+            rating_min,
+            rating_max,
+            search,
+            connection_status,
+            script_adherence,
+        )
+    ) or conversations_only
     # status filters on Call.status directly, so it doesn't itself need the join
     # — but keeping it in the trigger list above is harmless (join is a no-op
     # cost-wise here since it's 1:1 and outer).
@@ -97,10 +142,39 @@ def list_calls(
         stmt = stmt.where(_EFFECTIVE_DATE >= date_from)
     if date_to is not None:
         stmt = stmt.where(_EFFECTIVE_DATE <= date_to)
+    if connection_status is not None:
+        stmt = stmt.where(CallAnalysis.connection_status == connection_status)
+    if script_adherence is not None:
+        stmt = stmt.where(CallAnalysis.script_adherence == script_adherence)
+    if conversations_only:
+        # Both halves of the dashboard's usable_calls gate — see
+        # routes_dashboard._aggregate. Quality alone isn't enough: a
+        # substantial number of REJECTED_CORRUPTED rows still carry
+        # connection_status=CONNECTED, a leftover default from before this
+        # column was populated by the model, so it takes both conditions to
+        # exclude them.
+        stmt = stmt.where(
+            CallAnalysis.call_quality != CallQuality.REJECTED_CORRUPTED,
+            CallAnalysis.connection_status.in_(CONVERSATION_STATUSES),
+        )
     if search:
         pattern = f"%{search}%"
         stmt = stmt.where(
             Call.object_name.ilike(pattern) | Call.team_code.ilike(pattern) | CallAnalysis.summary.ilike(pattern)
+        )
+    # EXISTS rather than a join: a call can carry several mentions, and joining
+    # would return it once per matching row.
+    if category is not None:
+        stmt = stmt.where(
+            select(1)
+            .where(IssueMention.call_id == Call.id, IssueMention.category == category)
+            .exists()
+        )
+    if tag is not None:
+        stmt = stmt.where(
+            select(1)
+            .where(IssueMention.call_id == Call.id, IssueMention.tags.any(tag))
+            .exists()
         )
 
     sort_column = _SORT_COLUMNS[sort_by]

@@ -189,6 +189,7 @@ class _CallJob:
 def _run_graph(
     job: _CallJob,
     known_categories: dict[MentionType, list[str]],
+    known_tags: list[str],
     enabled_keys: frozenset[str],
 ) -> CallAnalysisState:
     """Runs one call through the graph. Touches no DB session, so this is safe
@@ -214,6 +215,7 @@ def _run_graph(
             "configurable": {
                 "thread_id": str(job.call_id),
                 "known_categories": known_categories,
+                "known_tags": known_tags,
             }
         },
     )
@@ -319,6 +321,7 @@ def run_pipeline(
 
     for chunk in _chunks(pending, concurrency):
         known_categories = category_service.get_known_categories(db)
+        known_tags = category_service.get_known_tags(db)
 
         for call in chunk:
             call.status = CallStatus.ANALYZING
@@ -328,11 +331,13 @@ def run_pipeline(
         jobs = [_CallJob(c.id, c.bucket_name, c.object_name, c.size_bytes) for c in chunk]
 
         if concurrency == 1:
-            outcomes = [_safe_run(jobs[0], known_categories, enabled_keys)]
+            outcomes = [_safe_run(jobs[0], known_categories, known_tags, enabled_keys)]
         else:
             with ThreadPoolExecutor(max_workers=concurrency) as executor:
                 outcomes = list(
-                    executor.map(lambda j: _safe_run(j, known_categories, enabled_keys), jobs)
+                    executor.map(
+                        lambda j: _safe_run(j, known_categories, known_tags, enabled_keys), jobs
+                    )
                 )
 
         # Persist serially on this thread — the workers above never touch the
@@ -383,11 +388,12 @@ def run_pipeline(
 def _safe_run(
     job: _CallJob,
     known_categories: dict[MentionType, list[str]],
+    known_tags: list[str],
     enabled_keys: frozenset[str],
 ) -> tuple[CallAnalysisState | None, Exception | None]:
     """Runs the graph and captures any exception, so that one bad recording
     doesn't tear down the whole thread pool / batch."""
     try:
-        return _run_graph(job, known_categories, enabled_keys), None
+        return _run_graph(job, known_categories, known_tags, enabled_keys), None
     except Exception as exc:  # noqa: BLE001 - reported per call by the caller
         return None, exc

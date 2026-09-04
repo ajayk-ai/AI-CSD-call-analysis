@@ -4,6 +4,7 @@ import { CardState } from '../components/common/CardState';
 import { PlantFilter } from '../components/common/PlantFilter';
 import { DataModeBanner } from '../components/common/DataModeBanner';
 import { usePlantFilter, useDataMode } from '../state/dashboardContext';
+import { useNavigation } from '../state/navigation';
 import { iconForCategory, qualityColor, sentimentMeta } from '../data/presentation';
 import {
   callAudioUrl,
@@ -76,6 +77,7 @@ type DetailState = { status: 'loading' } | { status: 'ready'; data: CallDetail }
 export function CallsPage() {
   const { plant, setPlant, plants } = usePlantFilter();
   const { dataMode } = useDataMode();
+  const { pendingCallFilters, consumeCallFilters } = useNavigation();
   const [agents, setAgents] = useState<string[]>([]);
   const [offset, setOffset] = useState(0);
   const [calls, setCalls] = useState<CallListItem[]>([]);
@@ -100,6 +102,19 @@ export function CallsPage() {
       .then((result) => setAgents(result.agents))
       .catch(() => undefined);
   }, [dataMode]);
+
+  // A "Review calls" click from the dashboard hands this page a ready-made
+  // filter (see state/navigation.tsx). App.tsx unmounts this page whenever the
+  // Calls tab isn't active, so it remounts fresh on every visit — a plain
+  // mount effect is enough to pick the seed up, and `consumeCallFilters`
+  // clears it so a later manual visit to this tab doesn't replay it.
+  useEffect(() => {
+    if (pendingCallFilters) {
+      setFilters(pendingCallFilters);
+      consumeCallFilters();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Plant/mode/sort/filter changes reset paging — a re-filtered set has its own page 1.
   useEffect(() => {
@@ -200,6 +215,45 @@ export function CallsPage() {
 
       <PlantFilter plants={plants} value={plant} onChange={setPlant} />
       <DataModeBanner />
+
+      {/* category/tag/connection_status have no dropdown of their own — they
+          only ever arrive via a "Review calls" link from the dashboard, so
+          this is the one place that makes the resulting filter legible. */}
+      {(filters.category || filters.tag || filters.connection_status) && (
+        <div className="calls-page__seeded-filter" role="status">
+          <span>
+            🔎 Showing calls
+            {filters.category && (
+              <>
+                {' '}
+                mentioning <strong>{filters.category}</strong>
+              </>
+            )}
+            {filters.tag && (
+              <>
+                {' '}
+                tagged <strong>{filters.tag}</strong>
+              </>
+            )}
+            {filters.connection_status && (
+              <>
+                {' '}
+                with connection status <strong>{titleCase(filters.connection_status)}</strong>
+              </>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFilter('category', undefined);
+              setFilter('tag', undefined);
+              setFilter('connection_status', undefined);
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       <div className="calls-filters">
         <div className="calls-filters__field">

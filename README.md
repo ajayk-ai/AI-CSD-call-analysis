@@ -1,23 +1,32 @@
 # AI CSD Call Analysis
 
-Analysis tooling and reporting for customer service call transcripts, built
-around the "Customer Trust Improvement Mission" service feedback report.
+Turns call-center recordings into a KPI dashboard: call quality, sentiment,
+satisfaction, connection health, agent script compliance, and ranked issue
+categories, all derived from Gemini reading the actual audio — not a fixed
+rubric.
+
+**Technical documentation lives in [`docs/`](docs/):**
+
+- [`docs/architecture.md`](docs/architecture.md) — system overview, request flow, directory map
+- [`docs/pipeline.md`](docs/pipeline.md) — the analysis pipeline: the KPI-node graph, checkpointing, adding a KPI
+- [`docs/data-model.md`](docs/data-model.md) — schema, the conversation-status gate, the category taxonomy
+- [`docs/dashboard.md`](docs/dashboard.md) — the dashboard's cross-filter design and click-to-review navigation
+- [`docs/api-reference.md`](docs/api-reference.md) — every endpoint
 
 ## Structure
 
-- [`frontend/`](frontend/) — React + TypeScript + Vite dashboard that visualizes
-  call quality, sentiment, satisfaction, issue trends, and KPI targets. Currently
-  runs on synthetic/mock data (see [`frontend/src/data/mockData.ts`](frontend/src/data/mockData.ts)),
-  with a "Run Analysis" button wired to the backend below;
-  see [`frontend/README.md`](frontend/README.md) for setup and structure.
+- [`frontend/`](frontend/) — React + TypeScript + Vite dashboard. Reads live
+  data from the backend below via `GET /api/dashboard/summary` and related
+  endpoints; see [`frontend/README.md`](frontend/README.md) for setup and
+  structure.
 - [`backend/`](backend/) — Python/FastAPI service that downloads call
-  recordings from a GCS bucket (the only piece that touches GCP) and sends
-  each one to Gemini (API key, via LangChain), which transcribes
-  and runs KPI/sentiment analysis in a single call, then stores results in a
-  local Postgres. Per-call work is a LangGraph state machine that gates out
-  unusable audio before it costs anything. Triggered manually (button or
-  `POST /api/pipeline/run`); see [`backend/README.md`](backend/README.md) for
-  setup and the full list of cost optimizations.
+  recordings from a GCS bucket (the only piece that touches GCP), runs each
+  one through a LangGraph pipeline — one audio-transcription pass, several
+  independent cheap text-based KPI extractions — and stores results in a
+  local Postgres. Durably checkpointed per call, so re-analyzing after a KPI
+  change costs cents, not a full re-transcription. Triggered manually (button
+  or `POST /api/pipeline/run`), or on an optional daily schedule; see
+  [`backend/README.md`](backend/README.md) for setup and cost optimizations.
 
 ## Running it
 

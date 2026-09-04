@@ -1,11 +1,10 @@
-import { useState } from 'react';
 import './App.css';
 import { PlantFilter } from './components/common/PlantFilter';
 import { AgentFilter } from './components/common/AgentFilter';
 import { DataModeBanner } from './components/common/DataModeBanner';
 import { FilterChips } from './components/common/FilterChips';
 import { DashboardHeader } from './components/layout/DashboardHeader';
-import { TabNav, type TabKey } from './components/layout/TabNav';
+import { TabNav } from './components/layout/TabNav';
 import { CallQualitySummary } from './components/dashboard/CallQualitySummary';
 import { CallConnectionSummary } from './components/dashboard/CallConnectionSummary';
 import { SentimentOverview } from './components/dashboard/SentimentOverview';
@@ -21,6 +20,7 @@ import { AdminPage } from './pages/AdminPage';
 import { CallsPage } from './pages/CallsPage';
 import { displayData, usePlantFilter, useAgentFilter, useDashboardSummary } from './state/dashboardContext';
 import { DashboardDataProvider } from './state/dashboardData';
+import { NavigationProvider, useNavigation } from './state/navigation';
 
 /**
  * The donut cards carry their own time filter and fetch their own range.
@@ -88,16 +88,25 @@ function Dashboard() {
   );
 }
 
-function App() {
-  const [tab, setTab] = useState<TabKey>('dashboard');
-
+function Shell() {
+  const { tab, setTab } = useNavigation();
   return (
-    <DashboardDataProvider>
+    <>
       <TabNav active={tab} onChange={setTab} />
       {tab === 'dashboard' && <Dashboard />}
       {tab === 'calls' && <CallsPage />}
       {tab === 'admin' && <AdminPage />}
-    </DashboardDataProvider>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <NavigationProvider>
+      <DashboardDataProvider>
+        <Shell />
+      </DashboardDataProvider>
+    </NavigationProvider>
   );
 }
 

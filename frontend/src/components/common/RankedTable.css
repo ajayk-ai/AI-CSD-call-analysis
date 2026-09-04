@@ -128,3 +128,30 @@
   background: rgba(59, 130, 246, 0.16);
   box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.45);
 }
+
+/* Tags are now clickable buttons (jump straight to those calls), not static
+   chips — restyled as buttons while keeping the original chip look. */
+.ranked-table__tag--clickable {
+  appearance: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ranked-table__tag--clickable:hover {
+  background: var(--color-info);
+  border-color: var(--color-info);
+  color: #ffffff;
+}
+
+/* Praise-vs-problem split column. Only rendered for a category that genuinely
+   appears on both sides — see routes_dashboard._Aggregate.mentions. */
+.ranked-table__split-neg {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-bad, #ef4444);
+}
+
+.ranked-table__split-none {
+  color: var(--text-muted);
+}

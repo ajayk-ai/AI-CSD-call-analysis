@@ -73,7 +73,7 @@ def spies(monkeypatch):
         "compliance": ComplianceResult(script_adherence=ScriptAdherenceLabel.FOLLOWED),
     }
 
-    def fake_extract(spec, transcript, known_categories):
+    def fake_extract(spec, transcript, known_categories, known_tags=None):
         calls["extractions"][spec.key] = calls["extractions"].get(spec.key, 0) + 1
         # The KPI nodes must be reading the ENGLISH transcript, not the verbatim
         # one — that's the whole reason the transcription node produces both.

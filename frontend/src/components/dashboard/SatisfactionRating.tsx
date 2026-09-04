@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Card } from '../common/Card';
 import { CardState } from '../common/CardState';
+import { OpenCallsButton } from '../common/OpenCallsButton';
 import { bandMeta } from '../../data/presentation';
 import { displayData, useDashboardSummary, useKpiFilter } from '../../state/dashboardContext';
-import type { RatingSource } from '../../services/api';
+import { toCallFilters } from '../../state/filterMapping';
+import type { CallFilters, RatingSource } from '../../services/api';
 import type { TimeRangeKey } from '../../types/dashboard.types';
 import './SatisfactionRating.css';
 
@@ -11,6 +13,20 @@ const SOURCE_OPTIONS: { key: RatingSource; label: string }[] = [
   { key: 'ai', label: 'AI Estimated' },
   { key: 'stated', label: 'Customer Stated' },
 ];
+
+/** `/api/calls`'s rating_min/max filter the AI estimate column only, so a
+ *  direct "review these calls" link is only exact under the AI source — under
+ *  "Customer Stated" it would silently filter on the wrong number. */
+function bandToCallFilters(band: string): CallFilters | null {
+  if (band === 'Not Given') return null;
+  // conversations_only: a rating band is only meaningful over calls where a
+  // customer actually spoke — a busy tone's placeholder rating of 5 would
+  // otherwise get counted into "1 - 7" by coincidence, not by any real
+  // dissatisfaction.
+  if (band === '9 - 10') return { rating_min: 9, conversations_only: true };
+  if (band === '8') return { rating_min: 8, rating_max: 8, conversations_only: true };
+  return { rating_max: 7, conversations_only: true };
+}
 
 export function SatisfactionRating({ range = 'all' }: { range?: TimeRangeKey }) {
   const [source, setSource] = useState<RatingSource>('ai');
@@ -79,6 +95,7 @@ export function SatisfactionRating({ range = 'all' }: { range?: TimeRangeKey }) 
               <th>Customer Feedback</th>
               <th style={{ textAlign: 'right' }}>No. of Calls</th>
               <th style={{ textAlign: 'right' }}>%</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -112,6 +129,15 @@ export function SatisfactionRating({ range = 'all' }: { range?: TimeRangeKey }) 
                   </td>
                   <td style={{ textAlign: 'right' }}>{row.count}</td>
                   <td style={{ textAlign: 'right' }}>{row.percentage.toFixed(2)}%</td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {source === 'ai' &&
+                      bandToCallFilters(row.key) &&
+                      row.count > 0 && (
+                        <OpenCallsButton
+                          filters={toCallFilters(data?.filters ?? {}, bandToCallFilters(row.key) ?? {})}
+                        />
+                      )}
+                  </td>
                 </tr>
               );
             })}
@@ -122,6 +148,7 @@ export function SatisfactionRating({ range = 'all' }: { range?: TimeRangeKey }) 
               <td />
               <td style={{ textAlign: 'right', fontWeight: 700 }}>{total}</td>
               <td style={{ textAlign: 'right', fontWeight: 700 }}>100%</td>
+              <td />
             </tr>
           </tfoot>
         </table>

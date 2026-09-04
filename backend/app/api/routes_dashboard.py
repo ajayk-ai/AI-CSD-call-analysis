@@ -8,6 +8,7 @@ from sqlalchemy import Date, Select, cast, func, select
 from sqlalchemy.orm import Session, aliased
 
 from app.db.models import (
+    CONVERSATION_STATUSES,
     Call,
     CallAnalysis,
     CallQuality,
@@ -287,6 +288,14 @@ class _Aggregate:
     aggregation logic itself."""
 
     analyzed_calls: int = 0
+    # Recording was audible enough to tell what happened — includes busy tones
+    # and voicemails, which are clear recordings of nothing. This is the
+    # denominator for the Connection Quality card and ONLY that card, because
+    # "how many of the calls we could hear actually became conversations" is
+    # exactly the question it answers.
+    reachable_calls: int = 0
+    # Reachable AND a customer actually spoke — see models.CONVERSATION_STATUSES.
+    # The denominator for every other KPI.
     usable_calls: int = 0
     quality_counter: "Counter[str]" = field(default_factory=Counter)
     connection_counter: "Counter[str]" = field(default_factory=Counter)
@@ -295,8 +304,11 @@ class _Aggregate:
     ai_ratings: list[int] = field(default_factory=list)
     stated_ratings: list[int] = field(default_factory=list)
     not_given_count: int = 0
-    mention_counters: dict[MentionType, "Counter[str]"] = field(
-        default_factory=lambda: {mt: Counter() for mt in MentionType}
+    # DISTINCT CALLS per category, not raw mention rows. A call that complains
+    # twice about the same thing is one affected call, and "how many calls hit
+    # this" is the number anyone acts on.
+    mention_calls: dict[MentionType, dict[str, set[UUID]]] = field(
+        default_factory=lambda: {mt: defaultdict(set) for mt in MentionType}
     )
     mention_examples: dict[MentionType, dict[str, str]] = field(
         default_factory=lambda: {mt: {} for mt in MentionType}
@@ -304,17 +316,50 @@ class _Aggregate:
     mention_tags: dict[MentionType, dict[str, "Counter[str]"]] = field(
         default_factory=lambda: {mt: defaultdict(Counter) for mt in MentionType}
     )
+    # The same category can land on both sides — "Installation / Delivery
+    # Issues" is currently praised on 4 calls and complained about on 1. Tracked
+    # per category name across every mention type so each row can report what
+    # share of the calls that raised it raised it as a problem.
+    category_positive_calls: dict[str, set[UUID]] = field(default_factory=lambda: defaultdict(set))
+    category_negative_calls: dict[str, set[UUID]] = field(default_factory=lambda: defaultdict(set))
     agent_usable_analyses: dict[str, list[CallAnalysis]] = field(default_factory=lambda: defaultdict(list))
+    # Everything the agent dialled that was audible, conversations or not —
+    # the denominator for their connection-issue rate, which would otherwise
+    # be measured over a set that excludes the very failures it counts.
+    agent_reachable_analyses: dict[str, list[CallAnalysis]] = field(default_factory=lambda: defaultdict(list))
     agent_compliance_counts: "Counter[str]" = field(default_factory=Counter)
 
     def mentions(self, mention_type: MentionType) -> list[SliceOut]:
-        counter = self.mention_counters[mention_type]
-        return _to_slices(
+        """Ranked categories for one mention type.
+
+        `percentage` is deliberately the share of USABLE CALLS, not of mentions
+        within this table. Percent-of-mentions made every table sum to 100% and
+        badly overstated everything: "Delay in Service Response" read as 32% of
+        the negative-driver table when it is 9 of 71 conversations — 12.7%. The
+        columns no longer sum to 100, which is correct: one call can raise
+        several issues, and most calls raise none.
+        """
+        by_category = self.mention_calls[mention_type]
+        counter: "Counter[str]" = Counter({k: len(v) for k, v in by_category.items()})
+        slices = _to_slices(
             counter,
-            sum(counter.values()),
+            self.usable_calls,
             examples=self.mention_examples[mention_type],
             tags={k: [t for t, _ in c.most_common(3)] for k, c in self.mention_tags[mention_type].items()},
         )
+        for row in slices:
+            positive = len(self.category_positive_calls.get(row.key, ()))
+            negative = len(self.category_negative_calls.get(row.key, ()))
+            # Only reported for categories that genuinely land on BOTH sides —
+            # e.g. "Installation / Delivery Issues", praised on 4 calls and
+            # complained about on 1. On a purely negative category the split
+            # would always read "100% negative", which is tautological on a
+            # table of negative drivers and just crowds the row.
+            if positive and negative:
+                row.positive_calls = positive
+                row.negative_calls = negative
+                row.negative_share = round(negative / (positive + negative) * 100, 2)
+        return slices
 
 
 def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
@@ -326,6 +371,9 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
     agg.analyzed_calls = len(analyses)
 
     call_id_to_agent: dict[UUID, str] = {}
+    # Calls where a customer actually spoke — everything except the quality
+    # breakdown and the connection breakdown is measured over these.
+    conversation_ids: set[UUID] = set()
     for analysis in analyses:
         call_id_to_agent[analysis.call_id] = analysis.agent_name or _UNASSIGNED_AGENT
         agg.quality_counter[analysis.call_quality.value] += 1
@@ -333,15 +381,23 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
         # Rejected calls are counted in the quality breakdown (that IS the
         # finding) but excluded everywhere else: the model's sentiment and
         # rating for audio it couldn't hear are not evidence of anything.
-        # Connection status is scoped to usable calls too — "no real
-        # conversation happened" is already what call_quality=rejected means,
-        # so re-showing that here would be redundant. What this breakdown
-        # answers is narrower and more useful: of the calls we COULD actually
-        # use, how many still hit a network/technical problem?
         if analysis.call_quality is CallQuality.REJECTED_CORRUPTED:
             continue
-        agg.usable_calls += 1
+
+        # Audible, so it belongs in the connection breakdown — whose entire
+        # purpose is to show how many audible calls never became conversations
+        # (busy tone, voicemail, dead air, cut off at the greeting).
+        agg.reachable_calls += 1
         agg.connection_counter[analysis.connection_status.value] += 1
+        agg.agent_reachable_analyses[analysis.agent_name or _UNASSIGNED_AGENT].append(analysis)
+
+        # ...but from here on, only real conversations count. See
+        # models.CONVERSATION_STATUSES for why this matters so much.
+        if analysis.connection_status not in CONVERSATION_STATUSES:
+            continue
+
+        conversation_ids.add(analysis.call_id)
+        agg.usable_calls += 1
         agg.sentiment_counter[analysis.sentiment.value] += 1
         agg.script_counter[analysis.script_adherence.value] += 1
         agg.ai_ratings.append(analysis.satisfaction_rating)
@@ -351,6 +407,9 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
             agg.not_given_count += 1
         agg.agent_usable_analyses[analysis.agent_name or _UNASSIGNED_AGENT].append(analysis)
 
+    if not conversation_ids:
+        return agg
+
     mention_rows = db.execute(
         select(
             IssueMention.call_id,
@@ -358,10 +417,10 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
             IssueMention.category,
             IssueMention.quote,
             IssueMention.tags,
-        ).where(IssueMention.call_id.in_(call_ids))
+        ).where(IssueMention.call_id.in_(conversation_ids))
     ).all()
     for call_id, mention_type, category, quote, tags in mention_rows:
-        agg.mention_counters[mention_type][category] += 1
+        agg.mention_calls[mention_type][category].add(call_id)
         if quote and (
             category not in agg.mention_examples[mention_type]
             or quote < agg.mention_examples[mention_type][category]
@@ -369,6 +428,10 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
             agg.mention_examples[mention_type][category] = quote
         for tag in tags or []:
             agg.mention_tags[mention_type][category][tag] += 1
+        if mention_type is MentionType.POSITIVE_THEME:
+            agg.category_positive_calls[category].add(call_id)
+        else:
+            agg.category_negative_calls[category].add(call_id)
         if mention_type is MentionType.AGENT_COMPLIANCE:
             agg.agent_compliance_counts[call_id_to_agent.get(call_id, _UNASSIGNED_AGENT)] += 1
 
@@ -393,7 +456,12 @@ def _trend(
     stmt = (
         select(_EFFECTIVE_DATE.label("day"), CallAnalysis.satisfaction_rating)
         .join(CallAnalysis, CallAnalysis.call_id == Call.id)
-        .where(CallAnalysis.call_quality != CallQuality.REJECTED_CORRUPTED)
+        .where(
+            CallAnalysis.call_quality != CallQuality.REJECTED_CORRUPTED,
+            # Same gate as the rest of the dashboard — a day whose only calls
+            # were busy tones must not plot as a flat 5.0.
+            CallAnalysis.connection_status.in_(CONVERSATION_STATUSES),
+        )
     )
     if plant is not None:
         stmt = stmt.where(plant_expr == plant)
@@ -588,13 +656,23 @@ def get_dashboard_summary(
 
     def _agent_stats() -> list[AgentStatsOut]:
         stats: list[AgentStatsOut] = []
-        for name, items in roster.agent_usable_analyses.items():
+        # The union, not just the agents with conversations: someone whose
+        # calls were all busy tones has a 100% connection-issue rate and zero
+        # conversations, which is exactly the row worth seeing — dropping them
+        # would hide the problem instead of reporting it.
+        names = set(roster.agent_usable_analyses) | set(roster.agent_reachable_analyses)
+        for name in names:
+            items = roster.agent_usable_analyses.get(name, [])
             ai_vals = [a.satisfaction_rating for a in items]
             stated_vals = [a.customer_stated_rating for a in items if a.customer_stated_rating is not None]
             sentiment_c: "Counter[str]" = Counter(a.sentiment.value for a in items)
             band_c: "Counter[str]" = Counter(_satisfaction_band(a.satisfaction_rating) for a in items)
             script_c: "Counter[str]" = Counter(a.script_adherence.value for a in items)
-            not_connected = sum(1 for a in items if a.connection_status is not ConnectionStatus.CONNECTED)
+            # Over every audible call they handled — `items` holds only the
+            # ones that became conversations, which by definition excludes the
+            # busy tones and voicemails this rate is meant to count.
+            reachable = roster.agent_reachable_analyses.get(name, [])
+            not_connected = sum(1 for a in reachable if a.connection_status is not ConnectionStatus.CONNECTED)
             stats.append(
                 AgentStatsOut(
                     agent_name=name,
@@ -607,7 +685,7 @@ def get_dashboard_summary(
                     satisfaction_bands=_to_slices(band_c, len(items), order=_BAND_ORDER),
                     script_adherence=_to_slices(script_c, len(items), _SCRIPT_LABELS, _SCRIPT_ORDER),
                     compliance_issue_count=roster.agent_compliance_counts.get(name, 0),
-                    connection_issue_rate=round(not_connected / len(items) * 100, 2) if items else 0.0,
+                    connection_issue_rate=round(not_connected / len(reachable) * 100, 2) if reachable else 0.0,
                 )
             )
         # Worst average rating first — that's where attention is needed.
@@ -630,6 +708,7 @@ def get_dashboard_summary(
         filters=filters.as_out(),
         total_calls=total_calls,
         analyzed_calls=scoped.analyzed_calls,
+        reachable_calls=scoped.reachable_calls,
         usable_calls=scoped.usable_calls,
         average_rating=round(sum(ratings_for_avg) / len(ratings_for_avg), 2) if ratings_for_avg else None,
         call_quality=_to_slices(
@@ -637,7 +716,10 @@ def get_dashboard_summary(
         ),
         connection_status=_to_slices(
             connection_source.connection_counter,
-            connection_source.usable_calls,
+            # Over REACHABLE calls, not conversations: the non-conversation
+            # states are precisely what this card exists to show, so they
+            # cannot be missing from their own denominator.
+            connection_source.reachable_calls,
             _CONNECTION_LABELS,
             _CONNECTION_ORDER,
         ),
@@ -726,7 +808,11 @@ def get_dashboard_insights(
         usable_calls = db.execute(
             select(func.count())
             .select_from(CallAnalysis)
-            .where(CallAnalysis.call_id.in_(call_ids), CallAnalysis.call_quality != CallQuality.REJECTED_CORRUPTED)
+            .where(
+                CallAnalysis.call_id.in_(call_ids),
+                CallAnalysis.call_quality != CallQuality.REJECTED_CORRUPTED,
+                CallAnalysis.connection_status.in_(CONVERSATION_STATUSES),
+            )
         ).scalar_one()
 
         positive = aliased(IssueMention)

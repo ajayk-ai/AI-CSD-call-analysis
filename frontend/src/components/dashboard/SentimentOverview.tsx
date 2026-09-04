@@ -3,9 +3,11 @@ import { Card } from '../common/Card';
 import { CardState } from '../common/CardState';
 import { ClickableSlice, sliceTitle } from '../common/ClickableSlice';
 import { DonutChart } from '../common/DonutChart';
+import { OpenCallsButton } from '../common/OpenCallsButton';
 import { TimeRangeFilter } from '../common/TimeRangeFilter';
 import { sentimentMeta } from '../../data/presentation';
 import { displayData, useDashboardSummary, useKpiFilter } from '../../state/dashboardContext';
+import { toCallFilters } from '../../state/filterMapping';
 import type { TimeRangeKey } from '../../types/dashboard.types';
 import './SentimentOverview.css';
 
@@ -71,6 +73,15 @@ export function SentimentOverview() {
                       </span>
                     </span>
                   </ClickableSlice>
+                  <div className="sentiment__legend-review">
+                    <OpenCallsButton
+                      filters={toCallFilters(data?.filters ?? {}, {
+                        sentiment: item.key,
+                        conversations_only: true,
+                      })}
+                      label={`Review ${item.count}`}
+                    />
+                  </div>
                 </li>
               );
             })}

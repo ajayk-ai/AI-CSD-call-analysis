@@ -15,6 +15,7 @@ export function CallQualitySummary() {
       centerLabel="TOTAL CALLS"
       color={qualityColor}
       filterKey="quality"
+      toReviewFilters={(key) => ({ call_quality: key })}
       emptyMessage="No analyzed calls in this range"
       emptyHint="Run an analysis, or widen the time range."
     />

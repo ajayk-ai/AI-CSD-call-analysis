@@ -63,3 +63,7 @@
   color: var(--text-muted);
   margin-right: 4px;
 }
+
+.key-insights__review {
+  margin-top: 6px;
+}

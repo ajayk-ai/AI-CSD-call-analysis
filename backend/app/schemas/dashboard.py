@@ -22,6 +22,17 @@ class SliceOut(BaseModel):
     # dimension of an issue (e.g. "pricing") without changing its category.
     tags: list[str] = []
 
+    # --- Issue-category rows only (null on enum breakdowns like sentiment) ---
+    # How many calls raised this category as praise vs. as a problem. The same
+    # category legitimately lands on both sides — "Installation / Delivery" is
+    # praised on some calls and complained about on others — and an issue table
+    # that hides that is telling half the story.
+    positive_calls: int | None = None
+    negative_calls: int | None = None
+    # Of the calls that raised this category at all, the share that raised it
+    # as a problem (0-100). None when nothing raised it.
+    negative_share: float | None = None
+
 
 class MonthlyAverageOut(BaseModel):
     # e.g. "MAY AVG" — pre-formatted for the chart's x-axis.
@@ -133,9 +144,16 @@ class DashboardSummaryOut(BaseModel):
     total_calls: int
     # Calls with an analysis row of any kind.
     analyzed_calls: int
-    # Analyzed calls that were actually intelligible (quality != rejected).
-    # This is the denominator the dashboard's "Based on N Usable Calls"
-    # subtitles refer to.
+    # Analyzed and intelligible — i.e. we could hear what happened. INCLUDES
+    # busy tones and voicemails, which are clear recordings of nothing. Only
+    # the Call Connection Quality card uses this, because its whole question is
+    # "of the calls we could hear, how many actually connected?"
+    reachable_calls: int
+    # Reachable AND a customer actually spoke (see models.CONVERSATION_STATUSES).
+    # The denominator behind every "Based on N Usable Calls" subtitle, and the
+    # basis of every rating, sentiment, compliance and issue figure — a busy
+    # tone carries no customer opinion, so counting it would dilute the calls
+    # that do.
     usable_calls: int
     average_rating: float | None
 

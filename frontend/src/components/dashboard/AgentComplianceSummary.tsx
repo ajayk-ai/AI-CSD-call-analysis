@@ -21,6 +21,10 @@ export function AgentComplianceSummary() {
       centerLabel="USABLE CALLS"
       color={scriptAdherenceColor}
       filterKey="adherence"
+      // conversations_only: script adherence is only measured over calls that
+      // became real conversations (see routes_dashboard._aggregate) — without
+      // this a busy tone's default "followed" would leak into the review set.
+      toReviewFilters={(key) => ({ script_adherence: key, conversations_only: true })}
       emptyMessage="No usable calls in this range"
       emptyHint="Run an analysis, or widen the time range."
     />

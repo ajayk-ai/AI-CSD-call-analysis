@@ -49,3 +49,13 @@
   color: var(--text-muted);
   line-height: 1.35;
 }
+
+.sentiment__legend li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sentiment__legend-review {
+  padding-left: 24px;
+}

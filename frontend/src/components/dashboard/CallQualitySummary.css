@@ -46,3 +46,14 @@
   font-weight: 700;
   color: var(--text-secondary);
 }
+
+/* Wraps a slice's clickable legend row + its "Review N" action underneath. */
+.call-quality__legend li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.call-quality__legend-review {
+  padding-left: 20px; /* aligns under the label, past the dot */
+}

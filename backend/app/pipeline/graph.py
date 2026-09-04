@@ -151,6 +151,12 @@ def _known_categories(config: RunnableConfig) -> dict[MentionType, list[str]]:
     return (config.get("configurable") or {}).get("known_categories") or {}
 
 
+def _known_tags(config: RunnableConfig) -> list[str]:
+    """The tag vocabulary already in use — same run-scoped treatment as the
+    category taxonomy, and converged for the same reason."""
+    return (config.get("configurable") or {}).get("known_tags") or []
+
+
 def _transcript_for_extraction(state: CallAnalysisState) -> str | None:
     """The English transcript the KPI nodes read.
 
@@ -196,7 +202,9 @@ def _make_extraction_node(spec: KpiSpec):
             # No transcript to reason over (transcription was skipped or came
             # back empty). Nothing to do — and nothing to charge for.
             return {}
-        result = call_analysis_service.extract(spec, transcript, _known_categories(config))
+        result = call_analysis_service.extract(
+            spec, transcript, _known_categories(config), _known_tags(config)
+        )
         return {
             "kpi_results": {spec.key: result.model_dump(mode="json")},
             "kpi_versions": {spec.key: spec.version},
