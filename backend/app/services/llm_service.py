@@ -36,7 +36,15 @@ def _structured_llm(tier: ModelTier, schema: type[BaseModel]) -> Runnable:
     """`.with_retry` handles transient model errors (429 rate limits, 503s) in
     place. That matters most for the transcription tier: without it a blip
     fails the node, and the next run re-downloads and re-sends the same audio,
-    paying the expensive audio-input tokens a second time."""
+    paying the expensive audio-input tokens a second time.
+
+    The None-check is piped INTO the chain before `.with_retry` wraps it,
+    deliberately: `with_structured_output` returning None on a malformed
+    response is exactly the kind of blip retry exists for, but it's a
+    successful `.invoke()` (no exception), so a check performed after
+    `.invoke()` returns would never see a retry. Folding it into the chain
+    makes that raise happen *inside* the retried call.
+    """
     settings = get_settings()
     llm = ChatGoogleGenerativeAI(
         model=model_name_for(tier),
@@ -46,14 +54,19 @@ def _structured_llm(tier: ModelTier, schema: type[BaseModel]) -> Runnable:
         # comparable.
         temperature=0.2,
     )
-    return llm.with_structured_output(schema).with_retry(stop_after_attempt=settings.analysis_max_retries)
+
+    def _require_result(result: BaseModel | None) -> BaseModel:
+        if result is None:
+            raise ValueError(f"Gemini did not return a parseable {schema.__name__}")
+        return result
+
+    return (llm.with_structured_output(schema) | _require_result).with_retry(
+        stop_after_attempt=settings.analysis_max_retries
+    )
 
 
 def _invoke(tier: ModelTier, schema: type[BaseModel], content: list[dict]) -> BaseModel:
-    result = _structured_llm(tier, schema).invoke([HumanMessage(content=content)])
-    if result is None:
-        raise ValueError(f"Gemini did not return a parseable {schema.__name__}")
-    return result
+    return _structured_llm(tier, schema).invoke([HumanMessage(content=content)])
 
 
 def run_on_audio(

@@ -427,3 +427,21 @@ col.col--chevron { width: 32px; }
   border-color: var(--color-info);
   color: var(--text-primary);
 }
+
+/* Tablet/narrow screens: the table still scrolls horizontally either way
+   (.calls-table-scroll), but dropping the two lowest-priority columns first
+   means the common case (checking status/sentiment/rating) doesn't require
+   scrolling at all. Team and Quality are 3rd/6th among th/td, matching
+   COLUMNS in CallsPage.tsx — update both if that order ever changes. */
+@media (max-width: 900px) {
+  .calls-table {
+    min-width: 640px;
+  }
+
+  .calls-table th:nth-child(3),
+  .calls-table td:nth-child(3),
+  .calls-table th:nth-child(6),
+  .calls-table td:nth-child(6) {
+    display: none;
+  }
+}

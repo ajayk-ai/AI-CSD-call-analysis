@@ -110,3 +110,14 @@ else:
         "frontend/ to also serve the dashboard from this port.",
         _FRONTEND_DIST,
     )
+
+
+if __name__ == "__main__":
+    # `uv run python -m app.main` — what every start*.bat script uses instead
+    # of hardcoding `uvicorn ... --port 8000`, so HOST/PORT in backend/.env
+    # (see app/config.py) are the one place that actually controls the bind
+    # address. `uvicorn app.main:app --port N` on the CLI still works too and
+    # overrides these, it just won't pick up HOST.
+    import uvicorn
+
+    uvicorn.run("app.main:app", host=settings.host, port=settings.port)

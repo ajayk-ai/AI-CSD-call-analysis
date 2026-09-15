@@ -128,6 +128,15 @@ class Settings(BaseSettings):
     # --- API / CORS (frontend dev server) ---
     cors_allow_origins: list[str] = ["http://localhost:5173"]
 
+    # --- Server bind address ---
+    # What uvicorn listens on when launched via `python -m app.main` (all the
+    # start*.bat scripts use this entrypoint rather than hardcoding a port, so
+    # this pair is the single source of truth). 127.0.0.1 = this machine only.
+    # Set to 0.0.0.0 (or this machine's LAN IP) to let other devices on the
+    # network reach the dashboard at http://<this-machine-ip>:<port>.
+    host: str = "127.0.0.1"
+    port: int = 8000
+
 
 @lru_cache
 def get_settings() -> Settings:

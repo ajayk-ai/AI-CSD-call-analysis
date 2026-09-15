@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.models import Call, CallStatus
 from app.db.session import get_db
-from app.pipeline.ingest_pipeline import PipelineRunSummary, run_pipeline
+from app.pipeline.ingest_pipeline import PipelineBusyError, PipelineRunSummary, run_pipeline
 from app.schemas.pipeline import PipelineStatusOut
 
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
@@ -42,7 +42,10 @@ def trigger_pipeline_run(
     Safe to call repeatedly: analyzed calls are skipped, so each click picks
     up where the last one stopped — unless `force=True`.
     """
-    return run_pipeline(db, limit=limit, force=force)
+    try:
+        return run_pipeline(db, limit=limit, force=force)
+    except PipelineBusyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/status", response_model=PipelineStatusOut)
@@ -57,12 +60,14 @@ def get_pipeline_status(db: Session = Depends(get_db)) -> PipelineStatusOut:
     rows = db.execute(select(Call.status, func.count()).group_by(Call.status)).all()
     counts = {status: n for status, n in rows}
 
+    failed = counts.get(CallStatus.FAILED, 0)
+    not_yet_analyzed = sum(n for status, n in counts.items() if status is not CallStatus.ANALYZED)
+
     return PipelineStatusOut(
         total_calls=sum(counts.values()),
         analyzed=counts.get(CallStatus.ANALYZED, 0),
-        failed=counts.get(CallStatus.FAILED, 0),
-        not_yet_analyzed=sum(
-            n for status, n in counts.items() if status is not CallStatus.ANALYZED
-        ),
+        failed=failed,
+        pending=not_yet_analyzed - failed,
+        not_yet_analyzed=not_yet_analyzed,
         default_run_limit=get_settings().pipeline_run_limit,
     )

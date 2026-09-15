@@ -208,8 +208,10 @@ export interface PipelineRunSummary {
   found_in_bucket: number;
   already_processed: number;
   newly_processed: number;
-  /** Subset of newly_processed that never reached the model (audio too small to contain speech). */
+  /** Subset of newly_processed that never reached the model (audio too small to contain speech) — free. */
   skipped_by_prescreen: number;
+  /** Subset of newly_processed that DID reach the model (audio tokens spent) but came back with no transcript. */
+  billed_no_transcript: number;
   failed: number;
   /** Recordings this run was allowed to send to Gemini; null = no cap. */
   limit_applied: number | null;
@@ -233,6 +235,8 @@ export interface PipelineStatus {
   total_calls: number;
   analyzed: number;
   failed: number;
+  /** PENDING + ANALYZING only — never-attempted recordings, distinct from `failed`. */
+  pending: number;
   not_yet_analyzed: number;
   default_run_limit: number;
 }

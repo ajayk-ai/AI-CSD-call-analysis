@@ -14,10 +14,13 @@ type RunState = 'idle' | 'running' | 'success' | 'error';
 const MIN_LIMIT = 5;
 
 function describe(summary: PipelineRunSummary): string {
-  const analyzed = summary.newly_processed - summary.skipped_by_prescreen;
+  const analyzed = summary.newly_processed - summary.skipped_by_prescreen - summary.billed_no_transcript;
   const parts = [`Analyzed ${analyzed} recording${analyzed === 1 ? '' : 's'}`];
   if (summary.skipped_by_prescreen > 0) {
-    parts.push(`${summary.skipped_by_prescreen} skipped as unusable`);
+    parts.push(`${summary.skipped_by_prescreen} skipped as unusable (no model cost)`);
+  }
+  if (summary.billed_no_transcript > 0) {
+    parts.push(`${summary.billed_no_transcript} produced no transcript (model cost still spent)`);
   }
   if (summary.failed > 0) {
     parts.push(`${summary.failed} failed`);
@@ -111,7 +114,10 @@ export function ManualRunPanel() {
         </button>
 
         {state === 'idle' && status && status.not_yet_analyzed > 0 && (
-          <p className="manual-run__status">{status.not_yet_analyzed} recordings queued.</p>
+          <p className="manual-run__status">
+            {status.pending} pending{status.failed > 0 ? `, ${status.failed} previously failed` : ''} —{' '}
+            {status.not_yet_analyzed} queued for the next run.
+          </p>
         )}
         {state === 'success' && summary && (
           <p className="manual-run__status manual-run__status--success">{describe(summary)}</p>

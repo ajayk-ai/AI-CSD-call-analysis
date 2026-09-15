@@ -6,7 +6,18 @@ from fastapi.responses import Response
 from sqlalchemy import Date, asc, cast, desc, func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.db.models import CONVERSATION_STATUSES, Call, CallAnalysis, CallQuality, IssueMention, plant_expr
+from app.db.models import (
+    CONVERSATION_STATUSES,
+    Call,
+    CallAnalysis,
+    CallQuality,
+    CallStatus,
+    ConnectionStatus,
+    IssueMention,
+    ScriptAdherence,
+    Sentiment,
+    plant_expr,
+)
 from app.db.session import get_db
 from app.schemas.calls import CallDetailOut, CallListItemOut
 from app.services import gcs_service
@@ -33,11 +44,20 @@ _SORT_COLUMNS = {
 _EFFECTIVE_DATE = func.coalesce(cast(Call.recording_date, Date), cast(Call.created_at, Date))
 
 
+def _enum_pattern(enum_cls: type) -> str:
+    """A `^(a|b|c)$` regex from an enum's own values, so an invalid filter
+    value 4xxs here instead of reaching Postgres and 500ing on an enum
+    bind-processor error (see routes_dashboard.py's equivalent filters,
+    which are hardcoded rather than derived — this stays in sync by
+    construction)."""
+    return "^(" + "|".join(member.value for member in enum_cls) + ")$"
+
+
 @router.get("", response_model=list[CallListItemOut])
 def list_calls(
     db: Session = Depends(get_db),
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     plant: str | None = Query(
         None,
         pattern="^[A-Za-z]{2}$",
@@ -45,9 +65,11 @@ def list_calls(
     ),
     sort_by: str = Query("created_at", description=f"One of: {', '.join(_SORT_COLUMNS)}"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
-    status: str | None = Query(None, description="Filter by call status (pending/analyzing/analyzed/failed)."),
-    call_quality: str | None = Query(None),
-    sentiment: str | None = Query(None),
+    status: str | None = Query(
+        None, pattern=_enum_pattern(CallStatus), description="Filter by call status (pending/analyzing/analyzed/failed)."
+    ),
+    call_quality: str | None = Query(None, pattern=_enum_pattern(CallQuality)),
+    sentiment: str | None = Query(None, pattern=_enum_pattern(Sentiment)),
     agent_name: str | None = Query(None, description="Exact match on the agent name extracted from the call."),
     rating_min: int | None = Query(None, ge=1, le=10),
     rating_max: int | None = Query(None, ge=1, le=10),
@@ -71,13 +93,16 @@ def list_calls(
     ),
     connection_status: str | None = Query(
         None,
+        pattern=_enum_pattern(ConnectionStatus),
         description=(
             "Filter by how the call connected. Note the dashboard excludes non-conversation states "
             "(busy tone, voicemail, dead air, cut off at the greeting) from its KPIs — this is how you "
             "still get at those recordings to check them."
         ),
     ),
-    script_adherence: str | None = Query(None, description="followed / partial / not_followed."),
+    script_adherence: str | None = Query(
+        None, pattern=_enum_pattern(ScriptAdherence), description="followed / partial / not_followed."
+    ),
     conversations_only: bool = Query(
         False,
         description=(

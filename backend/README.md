@@ -60,10 +60,16 @@ actually built, see the docs in [`../docs/`](../docs/):
    uv run uvicorn app.main:app --reload --port 8000
    ```
 
+   Or `uv run python -m app.main`, which reads `HOST`/`PORT` from `.env`
+   instead of defaulting to `127.0.0.1:8000` (see the "Server bind address"
+   section of `.env.example`) — this is what all the `start*.bat` scripts use.
+   `--reload` isn't available that way, so keep using the `uvicorn` command
+   above while iterating on backend code.
+
    The frontend dev server (`http://localhost:5173`) is already allow-listed
-   in CORS. Note `frontend/vite.config.ts` proxies `/api` to `:8001` by
-   default, not `:8000` — check that if the dashboard shows stale data
-   despite this process restarting cleanly.
+   in CORS. `frontend/vite.config.ts` proxies `/api` to `:8000` to match the
+   default `PORT` above — if you change `PORT` in `.env`, update that proxy
+   target too (or set `VITE_API_BASE_URL`, see `frontend/.env.example`).
 
 ## Triggering an analysis run
 

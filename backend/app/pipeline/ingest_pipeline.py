@@ -1,4 +1,5 @@
 import logging
+import threading
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -29,6 +30,20 @@ logger = logging.getLogger(__name__)
 
 _PRESCREEN_MODEL_NAME = "prescreen (no model call)"
 
+# Guards against two overlapping run_pipeline() calls — the manual "Run
+# Analysis" button and the daily scheduled job both call this with independent
+# sessions and no other coordination. Without this, both can pick up the same
+# PENDING/FAILED call, invoke the graph with the same thread_id concurrently
+# (double Gemini spend on the same recording), and race on the same
+# Transcript/CallAnalysis unique-per-call_id insert. Process-local is enough
+# for this single-process "run on my own machine" deployment (see run_pipeline
+# docstring); it does not protect against two separate backend processes.
+_pipeline_lock = threading.Lock()
+
+
+class PipelineBusyError(RuntimeError):
+    """Raised when run_pipeline() is called while another run is in progress."""
+
 
 def _model_label() -> str:
     """What goes in `call_analysis.model_name`.
@@ -50,6 +65,10 @@ class PipelineRunSummary:
     newly_processed: int = 0
     # Subset of newly_processed that never reached the model — see graph.prescreen_reason.
     skipped_by_prescreen: int = 0
+    # Subset of newly_processed that DID reach the model (audio tokens spent)
+    # but came back with no transcript — distinct from skipped_by_prescreen,
+    # which is free. See graph._assemble's billed_no_transcript.
+    billed_no_transcript: int = 0
     failed: int = 0
     # How many recordings this run was allowed to send to Gemini (None = no cap).
     limit_applied: int | None = None
@@ -270,6 +289,20 @@ def run_pipeline(
     converges chunk over chunk and run over run. Set `analysis_concurrency=1`
     for strict per-call convergence at the cost of wall-clock time.
     """
+    if not _pipeline_lock.acquire(blocking=False):
+        raise PipelineBusyError("An analysis run is already in progress. Try again shortly.")
+    try:
+        return _run_pipeline_locked(db, limit=limit, force=force, on_progress=on_progress)
+    finally:
+        _pipeline_lock.release()
+
+
+def _run_pipeline_locked(
+    db: Session,
+    limit: int | None,
+    force: bool,
+    on_progress: Callable[[int, int], None] | None,
+) -> PipelineRunSummary:
     settings = get_settings()
     summary = PipelineRunSummary()
 
@@ -359,7 +392,10 @@ def run_pipeline(
                 skipped_reason = state.get("skipped_reason") if state else None
                 if skipped_reason:
                     _store_prescreen_skip(db, call, skipped_reason)
-                    summary.skipped_by_prescreen += 1
+                    if state.get("billed_no_transcript"):
+                        summary.billed_no_transcript += 1
+                    else:
+                        summary.skipped_by_prescreen += 1
                 else:
                     # The graph returns plain JSON (see CallAnalysisState.result
                     # for why); this is where it becomes a typed object again.

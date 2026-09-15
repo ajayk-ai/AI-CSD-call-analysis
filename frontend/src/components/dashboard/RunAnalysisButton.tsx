@@ -12,11 +12,14 @@ import './RunAnalysisButton.css';
 type RunState = 'idle' | 'running' | 'success' | 'error';
 
 function describe(summary: PipelineRunSummary): string {
-  const analyzed = summary.newly_processed - summary.skipped_by_prescreen;
+  const analyzed = summary.newly_processed - summary.skipped_by_prescreen - summary.billed_no_transcript;
   const parts = [`Analyzed ${analyzed} recording${analyzed === 1 ? '' : 's'}`];
 
   if (summary.skipped_by_prescreen > 0) {
     parts.push(`${summary.skipped_by_prescreen} skipped as unusable (no model cost)`);
+  }
+  if (summary.billed_no_transcript > 0) {
+    parts.push(`${summary.billed_no_transcript} produced no transcript (model cost still spent)`);
   }
   if (summary.failed > 0) {
     parts.push(`${summary.failed} failed`);
@@ -69,9 +72,10 @@ export function RunAnalysisButton() {
         onClick={handleClick}
         disabled={state === 'running'}
         title={
-          limit
+          (limit
             ? `Sends up to ${limit} recordings to Gemini per click. Unusable audio is filtered out first, free.`
-            : 'Processes every recording not yet analyzed.'
+            : 'Processes every recording not yet analyzed.') +
+          ' Need a custom batch size or to re-analyze already-processed calls? Use Admin → Run Analysis Manually.'
         }
       >
         {state === 'running' ? (
@@ -90,7 +94,10 @@ export function RunAnalysisButton() {
         </p>
       )}
       {state === 'idle' && status && status.not_yet_analyzed > 0 && (
-        <p className="run-analysis__status">{status.not_yet_analyzed} recordings queued.</p>
+        <p className="run-analysis__status">
+          {status.pending} pending{status.failed > 0 ? `, ${status.failed} previously failed` : ''} —{' '}
+          {status.not_yet_analyzed} queued.
+        </p>
       )}
       {state === 'success' && summary && (
         <p className="run-analysis__status run-analysis__status--success">{describe(summary)}</p>

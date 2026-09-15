@@ -11,8 +11,12 @@ export default defineConfig({
     // production build (start-prod.bat) doesn't go through Vite at all —
     // FastAPI serves it directly, same-origin, so this block never applies
     // there.
+    //
+    // Must match PORT in backend/.env (default 8000). If you changed PORT
+    // there, either update this too or set VITE_API_BASE_URL instead (see
+    // frontend/.env.example) so the frontend talks to the backend directly.
     proxy: {
-      '/api': 'http://localhost:8001',
+      '/api': 'http://localhost:8000',
     },
   },
 })

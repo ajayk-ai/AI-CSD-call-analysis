@@ -34,7 +34,13 @@ export function AgentFilter({ agents, value, onChange }: AgentFilterProps) {
         ))}
       </select>
       {value && (
-        <button type="button" className="agent-filter__clear" onClick={() => onChange(null)} title="Clear agent filter">
+        <button
+          type="button"
+          className="agent-filter__clear"
+          onClick={() => onChange(null)}
+          title="Clear agent filter"
+          aria-label="Clear agent filter"
+        >
           ×
         </button>
       )}

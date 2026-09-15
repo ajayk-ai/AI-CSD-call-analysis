@@ -92,6 +92,12 @@ class CallAnalysisState(TypedDict, total=False):
     # into a CallAnalysisResult on the way to the database.
     result: dict | None
     skipped_reason: str | None
+    # True only when skipped_reason was synthesized by _assemble because the
+    # model WAS called (prescreen passed, download succeeded) and still came
+    # back with no transcript — as opposed to a skip decided before ever
+    # reaching Gemini. Lets the batch driver report this as a paid outcome
+    # instead of folding it into the free "skipped_by_prescreen" count.
+    billed_no_transcript: bool
 
 
 def prescreen_reason(size_bytes: int | None) -> str | None:
@@ -236,7 +242,14 @@ def _assemble(state: CallAnalysisState) -> CallAnalysisState:
 
     if not merged.get("transcript"):
         # Transcription is required; without it there is nothing to store.
-        return {"skipped_reason": state.get("skipped_reason") or "No transcript was produced."}
+        upstream_reason = state.get("skipped_reason")
+        if upstream_reason:
+            # Decided before the model was ever called (prescreen, or an
+            # empty download) — genuinely free.
+            return {"skipped_reason": upstream_reason}
+        # No upstream reason means transcription DID run and call the model —
+        # it just came back with nothing usable. That cost real audio tokens.
+        return {"skipped_reason": "No transcript was produced.", "billed_no_transcript": True}
 
     merged["kpi_versions"] = dict(versions)
     # Validated here so a malformed assembly fails inside the graph rather than

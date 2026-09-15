@@ -67,9 +67,10 @@ def _run_scheduled_job() -> None:
         config.last_run_at = datetime.now(timezone.utc)
         config.last_run_status = "success"
         config.last_run_summary = (
-            f"Analyzed {summary.newly_processed - summary.skipped_by_prescreen}, "
-            f"skipped {summary.skipped_by_prescreen}, failed {summary.failed}, "
-            f"{summary.remaining_pending} still queued."
+            f"Analyzed {summary.newly_processed - summary.skipped_by_prescreen - summary.billed_no_transcript}, "
+            f"skipped {summary.skipped_by_prescreen}, "
+            f"{summary.billed_no_transcript} produced no transcript, "
+            f"failed {summary.failed}, {summary.remaining_pending} still queued."
         )
         db.commit()
         logger.info("Scheduled pipeline run complete: %s", config.last_run_summary)

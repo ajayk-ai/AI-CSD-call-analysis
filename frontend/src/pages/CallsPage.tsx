@@ -335,6 +335,7 @@ export function CallsPage() {
               onChange={(e) => setRatingMinText(e.target.value)}
               onBlur={() => setFilter('rating_min', ratingMinText ? Number(ratingMinText) : undefined)}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              title="Press Enter or click away to apply"
             />
             <span>–</span>
             <input
@@ -346,6 +347,7 @@ export function CallsPage() {
               onChange={(e) => setRatingMaxText(e.target.value)}
               onBlur={() => setFilter('rating_max', ratingMaxText ? Number(ratingMaxText) : undefined)}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              title="Press Enter or click away to apply"
             />
           </div>
         </div>
@@ -376,6 +378,7 @@ export function CallsPage() {
             onChange={(e) => setSearchText(e.target.value)}
             onBlur={() => setFilter('search', searchText || undefined)}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            title="Press Enter or click away to apply"
           />
         </div>
 
@@ -435,6 +438,15 @@ export function CallsPage() {
                         <tr
                           className={`calls-table__row ${isExpanded ? 'calls-table__row--expanded' : ''}`}
                           onClick={() => toggleRow(call)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleRow(call);
+                            }
+                          }}
+                          tabIndex={0}
+                          role="button"
+                          aria-expanded={isExpanded}
                         >
                           <td>
                             <div className="calls-table__id">
@@ -452,6 +464,7 @@ export function CallsPage() {
                                   copyId(call.id);
                                 }}
                                 title="Copy full ID"
+                                aria-label="Copy full call ID"
                               >
                                 {copiedId === call.id ? '✓' : '⧉'}
                               </button>
@@ -607,11 +620,11 @@ function CallDetailPanel({ state, callId }: { state: DetailState | undefined; ca
             📋 Script: <strong>{titleCase(data.analysis.script_adherence)}</strong>
           </span>
           <span className="call-detail__meta-item">
-            ⭐ AI Rating:{' '}
+            ⭐ AI Estimated:{' '}
             <strong>{isRealRating(data.analysis) ? `${data.analysis.satisfaction_rating}/10` : 'N/A'}</strong>
           </span>
           <span className="call-detail__meta-item">
-            🗣️ Stated Rating:{' '}
+            🗣️ Customer Stated:{' '}
             <strong>{data.analysis.customer_stated_rating != null ? `${data.analysis.customer_stated_rating}/10` : 'Not Given'}</strong>
           </span>
         </div>

@@ -10,6 +10,16 @@ param(
     [int[]] $Ports = @(8000, 5173)
 )
 
+# Pick up a non-default backend PORT from .env so this still finds it.
+$envFile = Join-Path $PSScriptRoot "..\backend\.env"
+if (Test-Path $envFile) {
+    $portLine = Get-Content $envFile | Where-Object { $_ -match '^\s*PORT\s*=\s*(\d+)\s*$' } | Select-Object -Last 1
+    if ($portLine -and $portLine -match '^\s*PORT\s*=\s*(\d+)\s*$') {
+        $configuredPort = [int]$Matches[1]
+        if ($configuredPort -ne 8000) { $Ports += $configuredPort }
+    }
+}
+
 foreach ($port in $Ports) {
     $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     if (-not $connections) {
