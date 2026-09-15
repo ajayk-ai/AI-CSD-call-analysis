@@ -56,7 +56,7 @@
 }
 
 .filter-chips__remove:hover {
-  background: var(--color-danger, #ef4444);
+  background: var(--color-bad);
   color: #ffffff;
 }
 

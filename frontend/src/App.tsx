@@ -16,9 +16,17 @@ import { AgentComplianceSummary } from './components/dashboard/AgentComplianceSu
 import { ComplianceIssuesTable } from './components/dashboard/ComplianceIssuesTable';
 import { AgentPerformanceTable } from './components/dashboard/AgentPerformanceTable';
 import { KeyInsights } from './components/dashboard/KeyInsights';
+import { KpiSummaryStrip } from './components/dashboard/KpiSummaryStrip';
+import { ExecutiveSummary } from './components/dashboard/ExecutiveSummary';
 import { AdminPage } from './pages/AdminPage';
 import { CallsPage } from './pages/CallsPage';
-import { displayData, usePlantFilter, useAgentFilter, useDashboardSummary } from './state/dashboardContext';
+import {
+  displayData,
+  usePlantFilter,
+  useAgentFilter,
+  useDashboardFilters,
+  useDashboardSummary,
+} from './state/dashboardContext';
 import { DashboardDataProvider } from './state/dashboardData';
 import { NavigationProvider, useNavigation } from './state/navigation';
 
@@ -38,6 +46,7 @@ function Dashboard() {
   const error = state.status === 'error' ? state.message : undefined;
   const { plant, setPlant, plants } = usePlantFilter();
   const { agent, setAgent, agents } = useAgentFilter();
+  const { filters } = useDashboardFilters();
 
   return (
     <div className="dashboard">
@@ -58,6 +67,14 @@ function Dashboard() {
           <strong>Can't load the dashboard.</strong> {error}
         </div>
       )}
+
+      {/* "How are we performing" at a glance, then "why / what to do" —
+          both read off the same summary payload every card below also uses. */}
+      <KpiSummaryStrip data={data} />
+
+      <div className="dashboard__row dashboard__row--one">
+        <ExecutiveSummary data={data} error={error} filters={filters} />
+      </div>
 
       <div className="dashboard__row dashboard__row--four">
         <CallQualitySummary />

@@ -9,6 +9,7 @@ export function CallQualitySummary() {
     <DonutBreakdownCard
       title="Call Quality Summary"
       icon="📊"
+      tooltip="Whether the RECORDING was clear enough to analyze — not whether a real conversation happened. A busy tone can still be 'Good Clear' audio."
       select={(data) => data.call_quality}
       total={(data) => data.analyzed_calls}
       totalNoun="Analyzed Calls"

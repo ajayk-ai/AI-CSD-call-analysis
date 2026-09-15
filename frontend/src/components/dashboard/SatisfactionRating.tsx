@@ -53,6 +53,7 @@ export function SatisfactionRating({ range = 'all' }: { range?: TimeRangeKey }) 
       title="Customer Satisfaction Rating"
       subtitle={subtitle}
       icon="⭐"
+      tooltip="AI Estimated: Gemini's 1-10 judgement from the conversation itself. Customer Stated: only calls where the customer said an actual number out loud."
       footer={
         <div className="satisfaction__avg">
           <span>⭐</span>

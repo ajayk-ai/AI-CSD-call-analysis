@@ -20,8 +20,8 @@ interface TrendComparisonProps {
 }
 
 const TOOLTIP_STYLE = {
-  background: '#0f2138',
-  border: '1px solid rgba(148,180,226,0.3)',
+  background: '#0f172a',
+  border: '1px solid rgba(255,255,255,0.12)',
   borderRadius: 8,
   fontSize: 12,
 };
@@ -90,11 +90,11 @@ export function TrendComparison({ data, error }: TrendComparisonProps) {
               ) : (
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={monthlyAverages} margin={{ top: 16, right: 8, left: -18, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,180,226,0.12)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,23,42,0.1)" vertical={false} />
                     <XAxis
                       dataKey="month"
                       tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
-                      axisLine={{ stroke: 'rgba(148,180,226,0.2)' }}
+                      axisLine={{ stroke: 'rgba(15,23,42,0.16)' }}
                       tickLine={false}
                     />
                     <YAxis
@@ -110,9 +110,9 @@ export function TrendComparison({ data, error }: TrendComparisonProps) {
                     />
                     <Bar
                       dataKey="avg_rating"
-                      fill="#3b82f6"
+                      fill="#2563eb"
                       radius={[6, 6, 0, 0]}
-                      label={{ position: 'top', fill: '#f2f6fc', fontSize: 11, fontWeight: 700 }}
+                      label={{ position: 'top', fill: '#0f172a', fontSize: 11, fontWeight: 700 }}
                       isAnimationActive={false}
                     />
                   </BarChart>
@@ -127,12 +127,12 @@ export function TrendComparison({ data, error }: TrendComparisonProps) {
               ) : (
                 <ResponsiveContainer width="100%" height={160}>
                   <LineChart data={dailyRatings} margin={{ top: 16, right: 12, left: -18, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,180,226,0.12)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,23,42,0.1)" vertical={false} />
                     <XAxis
                       dataKey="day"
                       ticks={dailyTicks}
                       tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
-                      axisLine={{ stroke: 'rgba(148,180,226,0.2)' }}
+                      axisLine={{ stroke: 'rgba(15,23,42,0.16)' }}
                       tickLine={false}
                     />
                     <YAxis
@@ -150,9 +150,9 @@ export function TrendComparison({ data, error }: TrendComparisonProps) {
                     <Line
                       type="monotone"
                       dataKey="rating"
-                      stroke="#2ecc71"
+                      stroke="#16a34a"
                       strokeWidth={2}
-                      dot={{ r: 2.5, fill: '#2ecc71' }}
+                      dot={{ r: 2.5, fill: '#16a34a' }}
                       activeDot={{ r: 4 }}
                       isAnimationActive={false}
                     />

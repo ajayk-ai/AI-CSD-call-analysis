@@ -14,6 +14,8 @@ import './CallQualitySummary.css';
 interface DonutBreakdownCardProps {
   title: string;
   icon: string;
+  /** Explanation shown on hover next to the title — see Card's `tooltip` prop. */
+  tooltip?: string;
   /** Which slice list to read off the summary, and what its denominator is. */
   select: (data: DashboardSummary) => ApiSlice[];
   total: (data: DashboardSummary) => number;
@@ -48,6 +50,7 @@ interface DonutBreakdownCardProps {
 export function DonutBreakdownCard({
   title,
   icon,
+  tooltip,
   select,
   total,
   totalNoun,
@@ -72,7 +75,7 @@ export function DonutBreakdownCard({
     : undefined;
 
   return (
-    <Card title={title} subtitle={subtitle} icon={icon}>
+    <Card title={title} subtitle={subtitle} icon={icon} tooltip={tooltip}>
       <TimeRangeFilter value={range} onChange={setRange} />
       {state.status === 'error' ? (
         <CardState kind="error" message={state.message} />

@@ -15,6 +15,7 @@ export function AgentComplianceSummary() {
     <DonutBreakdownCard
       title="Agent Script Compliance"
       icon="📋"
+      tooltip="Usable Calls = reachable AND a customer actually spoke. Busy tones and voicemails are excluded — there's no script to have followed."
       select={(data) => data.script_adherence}
       total={(data) => data.usable_calls}
       totalNoun="Usable Calls"

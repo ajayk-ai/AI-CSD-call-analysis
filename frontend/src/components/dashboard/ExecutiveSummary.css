@@ -1,0 +1,74 @@
+.exec-summary {
+  gap: 14px;
+}
+
+.exec-summary__lead {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.exec-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .exec-summary__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exec-summary__point {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-card-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+}
+
+.exec-summary__icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.exec-summary__point-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.exec-summary__point-value {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.exec-summary__point-detail {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.exec-summary__recommendation {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.24);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.exec-summary__recommendation strong {
+  color: var(--text-primary);
+}

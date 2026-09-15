@@ -24,18 +24,18 @@
 
 .ranked-table tbody td {
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(148, 180, 226, 0.08);
+  border-bottom: 1px solid rgba(var(--tint-neutral), 0.06);
   color: var(--text-primary);
   vertical-align: middle;
   overflow-wrap: break-word;
 }
 
 .ranked-table tbody tr:nth-child(even) {
-  background: rgba(148, 180, 226, 0.04);
+  background: rgba(var(--tint-neutral), 0.025);
 }
 
 .ranked-table tbody tr:hover {
-  background: rgba(148, 180, 226, 0.09);
+  background: rgba(var(--tint-neutral), 0.05);
 }
 
 .ranked-table__total-label {
@@ -70,7 +70,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(148, 180, 226, 0.12);
+  background: rgba(var(--tint-neutral), 0.07);
   font-weight: 700;
   font-size: 11px;
 }
@@ -149,7 +149,7 @@
 .ranked-table__split-neg {
   font-size: 11px;
   font-weight: 700;
-  color: var(--color-bad, #ef4444);
+  color: var(--color-bad);
 }
 
 .ranked-table__split-none {

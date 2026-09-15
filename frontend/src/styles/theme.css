@@ -1,34 +1,43 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   /* Surfaces */
-  --bg-app-start: #060c1a;
-  --bg-app-end: #0a1730;
-  --bg-card: #0d1c33;
-  --bg-card-soft: #0f2138;
-  --bg-card-strong: #112544;
-  --border-card: rgba(148, 180, 226, 0.16);
-  --border-card-strong: rgba(148, 180, 226, 0.3);
-  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --bg-app-start: #eef2f9;
+  --bg-app-end: #e3eaf6;
+  --bg-card: #ffffff;
+  --bg-card-soft: #f6f8fc;
+  --bg-card-strong: #edf1fa;
+  --border-card: rgba(15, 23, 42, 0.08);
+  --border-card-strong: rgba(15, 23, 42, 0.16);
+  --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04);
 
-  /* Section header tints */
-  --header-panel: linear-gradient(135deg, #0b1a33 0%, #14294d 60%, #1a2f57 100%);
-  --header-red: linear-gradient(135deg, #4a1420 0%, #6d1c2c 100%);
-  --header-blue: linear-gradient(135deg, #0e2545 0%, #163863 100%);
-  --header-teal: linear-gradient(135deg, #0b2e2c 0%, #124c43 100%);
+  /* Neutral ink tint, as bare RGB components — use via rgba(var(--tint-neutral), X)
+     for a border/hover/divider shade that reads correctly against light surfaces. */
+  --tint-neutral: 15, 23, 42;
 
-  /* Semantic colors */
-  --color-good: #2ecc71;
+  /* Section header tints — kept vivid/saturated on purpose: a colored band
+     across the top of an otherwise white card is what keeps a bright theme
+     from reading as flat, while the card body underneath stays light and
+     easy to read. */
+  --header-panel: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
+  --header-red: linear-gradient(135deg, #9f1239 0%, #e11d48 100%);
+  --header-blue: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+  --header-teal: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+
+  /* Semantic colors — deepened one step from their dark-theme values so they
+     hold WCAG-AA contrast as text/icons on a white card (a hue tuned to pop
+     off navy reads as washed-out on white at the same lightness). */
+  --color-good: #16a34a;
   --color-good-alt: #22c55e;
-  --color-warning: #f5a623;
-  --color-bad: #ef4444;
-  --color-gold: #f5a623;
-  --color-info: #3b82f6;
+  --color-warning: #b45309;
+  --color-bad: #dc2626;
+  --color-gold: #b45309;
+  --color-info: #2563eb;
 
   /* Text */
-  --text-primary: #f2f6fc;
-  --text-secondary: #9db0ce;
-  --text-muted: #6f84a8;
+  --text-primary: #0f172a;
+  --text-secondary: #47536b;
+  --text-muted: #64748b;
 
   /* Radius / spacing */
   --radius-lg: 16px;

@@ -38,6 +38,16 @@ const STATUS_OPTIONS = ['pending', 'analyzing', 'analyzed', 'failed'];
 const QUALITY_OPTIONS = ['good_clear', 'partial_usable', 'rejected_corrupted'];
 const SENTIMENT_OPTIONS = ['positive', 'neutral', 'negative'];
 
+// Mirrors backend CONVERSATION_STATUSES (app/db/models.py) — the only
+// connection states where a customer actually spoke. Outside of these, the
+// model has nothing to judge and satisfaction_rating is a forced neutral
+// placeholder (5), not a real measurement, so it must not be displayed.
+const CONVERSATION_CONNECTION_STATUSES = new Set(['connected', 'dropped_during_call']);
+
+function isRealRating(analysis: { connection_status: string } | null | undefined): boolean {
+  return Boolean(analysis && CONVERSATION_CONNECTION_STATUSES.has(analysis.connection_status));
+}
+
 interface SortableColumn {
   key: CallSortKey | null;
   label: string;
@@ -470,7 +480,9 @@ export function CallsPage() {
                               '—'
                             )}
                           </td>
-                          <td style={{ textAlign: 'right' }}>{call.analysis?.satisfaction_rating ?? '—'}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            {isRealRating(call.analysis) ? call.analysis?.satisfaction_rating ?? '—' : '—'}
+                          </td>
                           <td className="calls-table__summary">{truncate(call.analysis?.summary ?? null)}</td>
                           <td className="calls-table__chevron">{isExpanded ? '▾' : '▸'}</td>
                         </tr>
@@ -595,7 +607,8 @@ function CallDetailPanel({ state, callId }: { state: DetailState | undefined; ca
             📋 Script: <strong>{titleCase(data.analysis.script_adherence)}</strong>
           </span>
           <span className="call-detail__meta-item">
-            ⭐ AI Rating: <strong>{data.analysis.satisfaction_rating}/10</strong>
+            ⭐ AI Rating:{' '}
+            <strong>{isRealRating(data.analysis) ? `${data.analysis.satisfaction_rating}/10` : 'N/A'}</strong>
           </span>
           <span className="call-detail__meta-item">
             🗣️ Stated Rating:{' '}

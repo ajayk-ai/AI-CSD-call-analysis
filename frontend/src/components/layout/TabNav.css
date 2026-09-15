@@ -8,6 +8,7 @@
 }
 
 .tab-nav__tab {
+  position: relative;
   appearance: none;
   border: 1px solid var(--border-card);
   background: var(--bg-card);
@@ -17,11 +18,12 @@
   padding: 9px 18px;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .tab-nav__tab:hover {
   color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
 .tab-nav__tab--active {
@@ -29,4 +31,24 @@
   background: var(--bg-card-strong);
   border-color: var(--border-card-strong);
   border-bottom-color: transparent;
+}
+
+.tab-nav__tab--active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--color-info);
+  border-radius: 2px 2px 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-nav__tab {
+    transition: none;
+  }
+  .tab-nav__tab:hover {
+    transform: none;
+  }
 }

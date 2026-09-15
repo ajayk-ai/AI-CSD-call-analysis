@@ -159,7 +159,7 @@ col.col--chevron { width: 32px; }
 }
 
 .calls-table__row:hover {
-  background: rgba(148, 180, 226, 0.06);
+  background: rgba(var(--tint-neutral), 0.04);
 }
 
 .calls-table__row--expanded {
@@ -197,7 +197,7 @@ col.col--chevron { width: 32px; }
 
 .calls-table__copy:hover {
   color: var(--text-primary);
-  background: rgba(148, 180, 226, 0.12);
+  background: rgba(var(--tint-neutral), 0.08);
 }
 
 .calls-table__dot {

@@ -19,6 +19,7 @@ export function CallConnectionSummary() {
     <DonutBreakdownCard
       title="Call Connection Quality"
       icon="📶"
+      tooltip="Reachable Calls include busy tones and voicemails deliberately — this card measures whether the call connected at all, separate from recording clarity."
       select={(data) => data.connection_status}
       total={(data) => data.reachable_calls}
       totalNoun="Reachable Calls"

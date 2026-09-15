@@ -12,8 +12,8 @@ body {
 
 body {
   min-height: 100vh;
-  background: radial-gradient(circle at 15% 0%, #102544 0%, transparent 45%),
-    radial-gradient(circle at 85% 10%, #0e2038 0%, transparent 40%),
+  background: radial-gradient(circle at 15% 0%, #dbe7fb 0%, transparent 45%),
+    radial-gradient(circle at 85% 10%, #e4e9fb 0%, transparent 40%),
     linear-gradient(180deg, var(--bg-app-start) 0%, var(--bg-app-end) 100%);
   background-attachment: fixed;
   color: var(--text-primary);
@@ -52,6 +52,6 @@ table {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 180, 226, 0.25);
+  background: rgba(var(--tint-neutral), 0.2);
   border-radius: 8px;
 }

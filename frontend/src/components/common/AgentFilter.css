@@ -45,5 +45,5 @@
 
 .agent-filter__clear:hover {
   color: var(--text-primary);
-  background: rgba(148, 180, 226, 0.12);
+  background: rgba(var(--tint-neutral), 0.08);
 }
