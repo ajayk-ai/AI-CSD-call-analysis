@@ -16,6 +16,13 @@ if not exist ".env" (
     exit /b 1
 )
 
+REM DB_NAME is read from .env so the hint below matches whatever this
+REM machine's .env actually sets, not a hardcoded default.
+set "DB_NAME=csd_call_analysis"
+for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
+    if "%%A"=="DB_NAME" if not "%%B"=="" set "DB_NAME=%%B"
+)
+
 echo.
 echo Checking Postgres, GCS and Gemini - this takes a few seconds...
 echo.
@@ -29,7 +36,7 @@ if errorlevel 1 (
     echo.
     echo   database : is Postgres running? Are DB_USER / DB_PASSWORD in
     echo              backend\.env right? Does the database exist?
-    echo                  CREATE DATABASE csd_call_analysis;
+    echo                  CREATE DATABASE %DB_NAME%;
     echo              Then re-run setup.bat to apply migrations.
     echo.
     echo   gcs      : run  gcloud auth application-default login

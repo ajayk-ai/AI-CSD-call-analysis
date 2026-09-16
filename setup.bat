@@ -66,6 +66,13 @@ if exist ".env" (
 )
 
 REM --- Database migrations -----------------------------------------
+REM DB_NAME is read from .env so the hint below matches whatever this
+REM machine's .env actually sets, not a hardcoded default.
+set "DB_NAME=csd_call_analysis"
+for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
+    if "%%A"=="DB_NAME" if not "%%B"=="" set "DB_NAME=%%B"
+)
+
 echo.
 echo [3/4] Applying database migrations...
 call uv run alembic upgrade head
@@ -75,8 +82,8 @@ if errorlevel 1 (
     echo       - Postgres is not running on this machine
     echo       - DB_USER / DB_PASSWORD in backend\.env are wrong
     echo       - the database does not exist yet; create it with:
-    echo             createdb csd_call_analysis
-    echo         (or in psql:  CREATE DATABASE csd_call_analysis;)
+    echo             createdb %DB_NAME%
+    echo         ^(or in psql:  CREATE DATABASE %DB_NAME%;^)
     popd
     goto :fail
 )
