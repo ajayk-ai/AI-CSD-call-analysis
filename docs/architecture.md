@@ -33,10 +33,10 @@ it to.
 
 **Two processes, not a monolith**, because the frontend is a pure consumer of
 JSON — it never touches GCS, Gemini, or Postgres directly. In production
-(`start-prod.bat`) FastAPI serves the built frontend itself from the same
-port, so "two processes" collapses to one for a real deployment; the split
-still matters during development, where the Vite dev server proxies `/api` to
-the backend for hot-reload.
+(`run.bat`) FastAPI serves the built frontend itself from the same port, so
+"two processes" collapses to one for a real deployment; the split still
+matters during development, where a Vite dev server (`npm run dev` in
+`frontend/`) proxies `/api` to the backend for hot-reload.
 
 **One Postgres instance, no message queue.** The dataset is a few hundred
 recordings, analysis runs are triggered by a human clicking a button, and the

@@ -1,8 +1,8 @@
 # API reference
 
 Base URL: same origin as the frontend in production
-(`start-prod.bat`, FastAPI serves the built dashboard); `http://localhost:8000`
-in dev (`start.bat`, Vite proxies `/api` to it). Every response not otherwise
+(`run.bat`, FastAPI serves the built dashboard); `http://localhost:8000`
+in dev (`npm run dev` in `frontend/`, Vite proxies `/api` to it). Every response not otherwise
 noted is JSON. Errors are `{"detail": "..."}` with a 4xx/5xx status —
 `app/main.py`'s `catch_unhandled_errors` middleware guarantees even an
 uncaught exception comes back this shape, with CORS headers intact (see

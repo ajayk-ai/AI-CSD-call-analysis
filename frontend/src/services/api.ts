@@ -3,10 +3,10 @@ import type { TimeRangeKey } from '../types/dashboard.types';
 /**
  * Default: '' (relative — requests go to the page's own origin). Correct for
  * the normal deployment, where FastAPI serves this built frontend itself
- * (start-prod.bat) — same origin regardless of which port that happens to be
+ * (run.bat) — same origin regardless of which port that happens to be
  * on, so nothing here needs to know it. Only set VITE_API_BASE_URL when the
  * frontend is served from somewhere OTHER than the backend, e.g. the Vite dev
- * server (start.bat) proxies /api to localhost:8000 by default — see
+ * server (npm run dev) proxies /api to localhost:8000 by default — see
  * vite.config.ts — so override this only if that backend runs on a different
  * port.
  */

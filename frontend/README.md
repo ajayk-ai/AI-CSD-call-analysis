@@ -31,8 +31,9 @@ npm run preview  # preview the production build locally
 npm run lint     # oxlint
 ```
 
-In production (`../start-prod.bat`), FastAPI serves this build directly from
-`frontend/dist` — no separate Vite process, no proxy, same-origin requests.
+In production (`npm run build`, done by `../setup.bat`, served by `../run.bat`),
+FastAPI serves this build directly from `frontend/dist` — no separate Vite
+process, no proxy, same-origin requests.
 
 ## Project structure
 

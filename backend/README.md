@@ -62,7 +62,7 @@ actually built, see the docs in [`../docs/`](../docs/):
 
    Or `uv run python -m app.main`, which reads `HOST`/`PORT` from `.env`
    instead of defaulting to `127.0.0.1:8000` (see the "Server bind address"
-   section of `.env.example`) — this is what all the `start*.bat` scripts use.
+   section of `.env.example`) — this is what `../run.bat` uses.
    `--reload` isn't available that way, so keep using the `uvicorn` command
    above while iterating on backend code.
 

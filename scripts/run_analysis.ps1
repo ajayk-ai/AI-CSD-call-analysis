@@ -21,7 +21,7 @@ $ErrorActionPreference = 'Stop'
 try {
     Invoke-RestMethod "$ApiBase/api/health" -TimeoutSec 5 | Out-Null
 } catch {
-    Write-Host '[X] Backend is not running. Start it with start-backend.bat first.' -ForegroundColor Red
+    Write-Host '[X] Backend is not running. Start it with run.bat first.' -ForegroundColor Red
     exit 1
 }
 

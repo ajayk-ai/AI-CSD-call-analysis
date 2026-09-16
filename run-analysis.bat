@@ -8,7 +8,7 @@ REM      run-analysis.bat        process the default batch (PIPELINE_RUN_LIMIT)
 REM      run-analysis.bat 10     process up to 10 recordings
 REM      run-analysis.bat 0      process the ENTIRE backlog (costs real money)
 REM
-REM  Requires the backend to be running already (start-backend.bat).
+REM  Requires the backend to be running already (run.bat).
 REM ===================================================================
 setlocal
 cd /d "%~dp0"

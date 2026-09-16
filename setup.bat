@@ -90,9 +90,11 @@ if errorlevel 1 (
 echo [OK] Database schema is up to date
 popd
 
-REM --- Frontend dependencies ---------------------------------------
+REM --- Frontend dependencies + build ---------------------------------
+REM Building here (not in run.bat) keeps run.bat a single run command,
+REM safe to point Windows Task Scheduler at directly.
 echo.
-echo [4/4] Installing frontend dependencies (npm install)...
+echo [4/4] Installing and building the frontend dashboard...
 pushd frontend
 call npm install
 if errorlevel 1 (
@@ -100,8 +102,14 @@ if errorlevel 1 (
     popd
     goto :fail
 )
+call npm run build
+if errorlevel 1 (
+    echo [X] npm run build failed.
+    popd
+    goto :fail
+)
 popd
-echo [OK] Frontend dependencies installed
+echo [OK] Frontend dependencies installed and dashboard built
 
 echo.
 echo ================================================================
@@ -109,7 +117,7 @@ echo   Setup complete.
 echo.
 echo   Next:
 echo     verify-setup.bat   check Postgres, GCS and Gemini actually work
-echo     start.bat          launch the backend + dashboard
+echo     run.bat            launch the backend + dashboard
 echo ================================================================
 echo.
 pause

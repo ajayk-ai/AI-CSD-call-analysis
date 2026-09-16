@@ -8,4 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Local database dumps/backups - never commit real call data
+csd
 csd.json
+*.dump

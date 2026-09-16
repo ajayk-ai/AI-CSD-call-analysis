@@ -54,7 +54,7 @@ if errorlevel 1 (
 
 echo.
 echo ================================================================
-echo   All checks passed. Run start.bat to launch the app.
+echo   All checks passed. Run run.bat to launch the app.
 echo ================================================================
 echo.
 pause

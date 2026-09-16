@@ -64,7 +64,8 @@ Run `setup.bat`. It's idempotent (safe to re-run) and does all of this:
 4. `uv run alembic upgrade head` — applies database migrations. Fails here if
    Postgres isn't running yet, or `DB_USER`/`DB_PASSWORD` are wrong — fix
    `backend\.env` and re-run `setup.bat`.
-5. `npm install` in `frontend/`.
+5. `npm install` and `npm run build` in `frontend/` — the dashboard is built
+   once here, not on every run, so `run.bat` (below) stays a single command.
 
 ### 3. Verify before spending anything
 
@@ -74,16 +75,18 @@ run.
 
 ### 4. Start the app
 
-Two ways, same dashboard:
+`run.bat` — the whole app. One process, one port
+(`http://localhost:8000`), serving both the API and the built dashboard.
+It's intentionally just the run command (`cd backend && uv run python -m
+app.main`, reading `HOST`/`PORT` from `backend\.env`) — no popups, no
+`pause`, nothing interactive — so you can point Windows Task Scheduler at it
+directly (e.g. to auto-start on login/boot) instead of double-clicking it
+every time. Stop it the same way you'd stop any process you started — Ctrl+C
+in its window, or Task Manager / Task Scheduler if it's running unattended.
 
-- `start-prod.bat` — **recommended.** Builds the dashboard and serves it from
-  the FastAPI backend itself: one process, one port
-  (`http://localhost:8000`), no separate dev server.
-- `start.bat` — dev mode: backend on :8000, Vite dev server on :5173 with
-  hot-reload. Use this only while actively editing frontend code; run
-  `build-frontend.bat` afterward so `start-prod.bat` picks up the change.
-
-`stop.bat` stops whatever this project left listening on its ports.
+Editing frontend code? Run `npm run dev` in `frontend/` for Vite's
+hot-reload dev server (proxies `/api` to the backend), then `npm run build`
+when done so `run.bat` picks up the change.
 
 ### 5. Run an analysis
 
