@@ -58,6 +58,26 @@
   margin-bottom: 8px;
 }
 
+.exec-summary__point--bad {
+  border-left: 3px solid var(--color-bad);
+}
+
+.exec-summary__point--good {
+  border-left: 3px solid var(--color-good);
+}
+
+.exec-summary__recommendation p,
+.exec-summary__recommendation ol {
+  margin: 4px 0 0;
+}
+
+.exec-summary__recommendation ol {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .exec-summary__recommendation {
   margin: 0;
   padding: 10px 14px;

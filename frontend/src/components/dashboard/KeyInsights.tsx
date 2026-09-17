@@ -6,14 +6,15 @@ import { TimeRangeFilter } from '../common/TimeRangeFilter';
 import { iconForCategory } from '../../data/presentation';
 import { useDashboardFilters, useDataMode, useDashboardRefresh } from '../../state/dashboardContext';
 import { toCallFilters } from '../../state/filterMapping';
-import { fetchDashboardInsights, type DashboardFilters, type InsightPair } from '../../services/api';
+import {
+  fetchAiInsights,
+  fetchDashboardInsights,
+  type AiInsight,
+  type DashboardFilters,
+  type InsightPair,
+} from '../../services/api';
 import type { TimeRangeKey } from '../../types/dashboard.types';
 import './KeyInsights.css';
-
-const MENTION_TYPE_LABEL: Record<string, string> = {
-  negative_driver: 'complaint',
-  service_issue: 'service issue',
-};
 
 function InsightTile({ insight, filters }: { insight: InsightPair; filters: DashboardFilters }) {
   const [expanded, setExpanded] = useState(false);
@@ -23,10 +24,9 @@ function InsightTile({ insight, filters }: { insight: InsightPair; filters: Dash
       <button type="button" className="key-insights__summary" onClick={() => setExpanded((e) => !e)}>
         <span className="key-insights__icon">{iconForCategory(insight.positive_category, '⭐')}</span>
         <span className="key-insights__text">
-          <strong>{insight.positive_category}</strong> praised alongside{' '}
-          <span className="key-insights__icon">{iconForCategory(insight.other_category, '⚠️')}</span>{' '}
-          <strong>{insight.other_category}</strong> ({MENTION_TYPE_LABEL[insight.other_mention_type] ?? 'issue'}) in{' '}
-          {insight.count} call{insight.count === 1 ? '' : 's'} ({insight.percentage.toFixed(1)}%)
+          Customers praised <strong>{insight.positive_category}</strong> but also raised{' '}
+          <strong>{insight.other_category}</strong> — {insight.count} call{insight.count === 1 ? '' : 's'} (
+          {insight.percentage.toFixed(1)}%)
         </span>
         <span className="key-insights__chevron">{expanded ? '▾' : '▸'}</span>
       </button>
@@ -34,21 +34,19 @@ function InsightTile({ insight, filters }: { insight: InsightPair; filters: Dash
         <div className="key-insights__quotes">
           {insight.positive_example && (
             <p>
-              <span className="key-insights__quote-label">Positive:</span> "{insight.positive_example}"
+              <span className="key-insights__quote-label">Praise:</span> "{insight.positive_example}"
             </p>
           )}
           {insight.other_example && (
             <p>
-              <span className="key-insights__quote-label">Issue:</span> "{insight.other_example}"
+              <span className="key-insights__quote-label">Concern:</span> "{insight.other_example}"
             </p>
           )}
           <div className="key-insights__review">
-            {/* Both categories are mentions on the SAME calls, but /api/calls
-                only takes one category to match on — this opens the issue
-                side, since that's the half worth reading in full. */}
+            {/* /api/calls matches one category, so this opens the concern side. */}
             <OpenCallsButton
               filters={toCallFilters(filters, { category: insight.other_category, conversations_only: true })}
-              label={`Review the ${insight.count} calls`}
+              label={`Review ${insight.count} call${insight.count === 1 ? '' : 's'}`}
             />
           </div>
         </div>
@@ -57,71 +55,125 @@ function InsightTile({ insight, filters }: { insight: InsightPair; filters: Dash
   );
 }
 
-/** Cross-signal correlation: positive themes that co-occur, on the same
- *  calls, with a negative driver or service issue — e.g. "service praised
- *  alongside spare-part pricing complaints in 23 calls". Not part of the
- *  shared dashboard summary cache since it's its own endpoint/shape; follows
- *  the same per-card range-selector + global-plant-filter pattern as the
- *  other cards regardless. */
+type PairsState =
+  | { status: 'loading' }
+  | { status: 'ready'; insights: InsightPair[]; usableCalls: number }
+  | { status: 'error'; message: string };
+
+type HighlightsState = { status: 'idle' | 'loading' | 'error' } | { status: 'ready'; data: AiInsight };
+
 export function KeyInsights() {
   const [range, setRange] = useState<TimeRangeKey>('all');
   const { filters } = useDashboardFilters();
   const { agent } = filters;
   const { dataMode } = useDataMode();
   const { refreshedAt } = useDashboardRefresh();
-  const [state, setState] = useState<
-    { status: 'loading' } | { status: 'ready'; insights: InsightPair[] } | { status: 'error'; message: string }
-  >({ status: 'loading' });
+  const [pairs, setPairs] = useState<PairsState>({ status: 'loading' });
+  const [highlights, setHighlights] = useState<HighlightsState>({ status: 'idle' });
+  const [retry, setRetry] = useState(0);
+  const filtersKey = JSON.stringify(filters);
 
   useEffect(() => {
     let cancelled = false;
-    setState({ status: 'loading' });
+    setPairs({ status: 'loading' });
     fetchDashboardInsights(range, filters, dataMode)
       .then((result) => {
-        if (!cancelled) setState({ status: 'ready', insights: result.insights });
+        if (!cancelled) setPairs({ status: 'ready', insights: result.insights, usableCalls: result.usable_calls });
       })
       .catch((err: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: err instanceof Error ? err.message : 'Unknown error' });
+        if (!cancelled) setPairs({ status: 'error', message: err instanceof Error ? err.message : 'Unknown error' });
       });
     return () => {
       cancelled = true;
     };
-    // Serialized rather than listed field by field, so a new filter dimension
-    // can't silently fail to re-trigger this card's own fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, JSON.stringify(filters), dataMode, refreshedAt]);
+  }, [range, filtersKey, dataMode, refreshedAt]);
+
+  const usableCalls = pairs.status === 'ready' ? pairs.usableCalls : null;
+
+  // Waits for the pairs request so a selection with no usable calls never
+  // asks for highlights at all.
+  useEffect(() => {
+    if (!usableCalls) {
+      setHighlights({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setHighlights({ status: 'loading' });
+    fetchAiInsights(range, filters, dataMode)
+      .then((data) => {
+        if (!cancelled) setHighlights({ status: 'ready', data });
+      })
+      .catch(() => {
+        if (!cancelled) setHighlights({ status: 'error' });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usableCalls, range, filtersKey, dataMode, refreshedAt, retry]);
 
   return (
     <Card
       title="Key Insights"
-      subtitle={
-        agent
-          ? `${agent} — what's driving satisfaction alongside what's holding it back`
-          : "What's driving satisfaction alongside what's holding it back"
-      }
+      subtitle={agent ? `${agent} — what stands out in the calls` : 'What stands out in the calls'}
       icon="💡"
     >
       <TimeRangeFilter value={range} onChange={setRange} />
-      {state.status === 'error' ? (
-        <CardState kind="error" message={state.message} />
-      ) : state.status === 'loading' ? (
+
+      {pairs.status === 'error' ? (
+        <CardState kind="error" message={pairs.message} />
+      ) : pairs.status === 'loading' ? (
         <CardState kind="loading" />
-      ) : state.insights.length === 0 ? (
+      ) : pairs.usableCalls === 0 ? (
         <CardState
           kind="empty"
-          message="No correlated insights yet"
-          hint="Shows up once the same calls carry both a praised theme and a flagged issue."
+          message="No customer conversations in this selection yet"
+          hint="Insights appear once analyzed calls include a real conversation."
         />
       ) : (
-        <ul className="key-insights__list">
-          {state.insights.map((insight, i) => (
-            <InsightTile
-              key={`${insight.positive_category}-${insight.other_category}-${i}`}
-              insight={insight}
-              filters={filters}
-            />
-          ))}
-        </ul>
+        <>
+          <section className="key-insights__highlights">
+            <h4 className="key-insights__heading">✨ Highlights</h4>
+            {highlights.status === 'ready' ? (
+              <>
+                <p className="key-insights__headline">{highlights.data.headline}</p>
+                <ul className="key-insights__points">
+                  {highlights.data.key_points.map((point, i) => (
+                    <li key={i}>{point}</li>
+                  ))}
+                </ul>
+                <p className="key-insights__recommendation">
+                  <strong>Recommended focus:</strong> {highlights.data.recommendation}
+                </p>
+              </>
+            ) : highlights.status === 'error' ? (
+              <p className="key-insights__muted">
+                Highlights aren't available right now.{' '}
+                <button type="button" className="key-insights__retry" onClick={() => setRetry((n) => n + 1)}>
+                  Try again
+                </button>
+              </p>
+            ) : (
+              <p className="key-insights__muted">Reading the latest calls…</p>
+            )}
+          </section>
+
+          {pairs.insights.length > 0 && (
+            <section className="key-insights__pairs">
+              <h4 className="key-insights__heading">Praise and concerns on the same calls</h4>
+              <ul className="key-insights__list">
+                {pairs.insights.map((insight, i) => (
+                  <InsightTile
+                    key={`${insight.positive_category}-${insight.other_category}-${i}`}
+                    insight={insight}
+                    filters={filters}
+                  />
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
       )}
     </Card>
   );

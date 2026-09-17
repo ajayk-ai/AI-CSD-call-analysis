@@ -21,6 +21,7 @@ from app.db.models import (
 from app.db.session import get_db
 from app.schemas.calls import CallDetailOut, CallListItemOut
 from app.services import gcs_service
+from app.services.agent_names import build_agent_name_map, raw_names_for
 
 router = APIRouter(prefix="/api/calls", tags=["calls"])
 
@@ -70,7 +71,13 @@ def list_calls(
     ),
     call_quality: str | None = Query(None, pattern=_enum_pattern(CallQuality)),
     sentiment: str | None = Query(None, pattern=_enum_pattern(Sentiment)),
-    agent_name: str | None = Query(None, description="Exact match on the agent name extracted from the call."),
+    agent_name: str | None = Query(
+        None,
+        description=(
+            "Matches the canonical agent name (see /api/dashboard/agents) — every raw spelling variant "
+            "the model extracted for that person, not just one exact string."
+        ),
+    ),
     rating_min: int | None = Query(None, ge=1, le=10),
     rating_max: int | None = Query(None, ge=1, le=10),
     date_from: date | None = Query(None, description="Inclusive; matches the same effective date as recording_date."),
@@ -158,7 +165,8 @@ def list_calls(
     if sentiment is not None:
         stmt = stmt.where(CallAnalysis.sentiment == sentiment)
     if agent_name is not None:
-        stmt = stmt.where(CallAnalysis.agent_name == agent_name)
+        agent_map = build_agent_name_map(db)
+        stmt = stmt.where(CallAnalysis.agent_name.in_(raw_names_for(agent_name, agent_map)))
     if rating_min is not None:
         stmt = stmt.where(CallAnalysis.satisfaction_rating >= rating_min)
     if rating_max is not None:

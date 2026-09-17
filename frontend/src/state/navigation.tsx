@@ -21,7 +21,8 @@ interface NavigationValue {
   tab: TabKey;
   setTab: (tab: TabKey) => void;
   /** Held here rather than in the dashboard, so a "Review calls" round trip
-   *  returns to the section the user left instead of resetting to Overview. */
+   *  returns to the section the user left instead of resetting to the
+   *  default. */
   section: DashboardSection;
   setSection: (section: DashboardSection) => void;
   /** Filters to seed the Calls page with on its next mount; null = leave as-is. */
@@ -36,7 +37,7 @@ const NavigationContext = createContext<NavigationValue | null>(null);
 
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<TabKey>('dashboard');
-  const [section, setSection] = useState<DashboardSection>('overview');
+  const [section, setSection] = useState<DashboardSection>('customers');
   const [pendingCallFilters, setPendingCallFilters] = useState<CallFilters | null>(null);
 
   const openCalls = useCallback((filters: CallFilters) => {

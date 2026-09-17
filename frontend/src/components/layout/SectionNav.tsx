@@ -10,12 +10,12 @@ export type DashboardSection =
   | 'agents';
 
 const SECTIONS: { key: DashboardSection; label: string; icon: string; hint: string }[] = [
-  { key: 'overview', label: 'Overview', icon: '🧭', hint: 'What needs attention right now' },
   { key: 'customers', label: 'Customers', icon: '😊', hint: 'Sentiment, satisfaction and trend' },
   { key: 'quality', label: 'Call Quality', icon: '🎧', hint: 'Recording clarity and connection' },
   { key: 'issues', label: 'Issues', icon: '⚠️', hint: 'Complaint drivers and machine issues' },
   { key: 'compliance', label: 'Compliance', icon: '📋', hint: 'Script compliance and where it slips' },
   { key: 'agents', label: 'Agents', icon: '👤', hint: 'Performance per agent' },
+  { key: 'overview', label: 'Key Insight', icon: '💡', hint: 'Executive summary and cross-signal insights' },
 ];
 
 interface SectionNavProps {

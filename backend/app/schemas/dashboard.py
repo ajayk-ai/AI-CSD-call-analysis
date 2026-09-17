@@ -47,6 +47,31 @@ class DailyRatingOut(BaseModel):
     call_count: int
 
 
+class DailySentimentOut(BaseModel):
+    """One day's sentiment split, for the current month's line chart — one
+    line per category rather than a single averaged number, since sentiment
+    is categorical."""
+
+    day: int  # day of month, 1-31
+    positive: int
+    neutral: int
+    negative: int
+    call_count: int
+
+
+class MonthlySentimentOut(BaseModel):
+    """One month's sentiment split, for the last-3-months bar chart — grouped
+    bars (positive/neutral/negative) per month rather than a single average,
+    since sentiment is categorical."""
+
+    # e.g. "AUG 2026" — pre-formatted for the chart's x-axis.
+    month: str
+    positive: int
+    neutral: int
+    negative: int
+    call_count: int
+
+
 class DashboardPlantsOut(BaseModel):
     # Every plant code seen across ALL calls, regardless of the currently
     # selected time range or plant filter — so the filter's own option list
@@ -188,3 +213,25 @@ class DashboardSummaryOut(BaseModel):
     current_month_label: str | None
     monthly_averages: list[MonthlyAverageOut]
     daily_ratings: list[DailyRatingOut]
+
+    # Overall Customer Sentiment's bar-vs-line trend: the three months before
+    # the current one, grouped by category (bar) and the current month's
+    # daily split (line). Same latest-call anchoring and filter scoping as
+    # monthly_averages/daily_ratings above.
+    monthly_sentiment: list[MonthlySentimentOut]
+    daily_sentiment: list[DailySentimentOut]
+
+
+class AiInsightOut(BaseModel):
+    """An LLM-written narrative over the SAME correlation pairs and aggregate
+    numbers already shown on the "Key Insights" card (see
+    app.services.ai_insights_service) — generated on-demand from that card's
+    Generate button, not on every page load, since it's a real model call
+    with a real cost."""
+
+    headline: str
+    key_points: list[str]
+    recommendation: str
+    # Echoed back so the card can show what the insight was based on even
+    # after the underlying filters change.
+    usable_calls: int

@@ -57,6 +57,22 @@ export interface ApiDailyRating {
   call_count: number;
 }
 
+export interface ApiDailySentiment {
+  day: number;
+  positive: number;
+  neutral: number;
+  negative: number;
+  call_count: number;
+}
+
+export interface ApiMonthlySentiment {
+  month: string;
+  positive: number;
+  neutral: number;
+  negative: number;
+  call_count: number;
+}
+
 export interface AgentStats {
   agent_name: string;
   calls_handled: number;
@@ -162,6 +178,13 @@ export interface DashboardSummary {
   current_month_label: string | null;
   monthly_averages: ApiMonthlyAverage[];
   daily_ratings: ApiDailyRating[];
+
+  /** Overall Customer Sentiment's bar-vs-line trend: the three months before
+   *  the current one, grouped by category (bar) and the current month's
+   *  daily split (line). Same latest-call anchoring as
+   *  monthly_averages/daily_ratings above. */
+  monthly_sentiment: ApiMonthlySentiment[];
+  daily_sentiment: ApiDailySentiment[];
 }
 
 export interface InsightPair {
@@ -181,6 +204,16 @@ export interface DashboardInsights {
   data_mode: DataMode;
   usable_calls: number;
   insights: InsightPair[];
+}
+
+/** An LLM-written read over the Key Insights card's correlation pairs plus
+ *  the rest of the dashboard's aggregate numbers — see
+ *  GET /api/dashboard/insights/ai. */
+export interface AiInsight {
+  headline: string;
+  key_points: string[];
+  recommendation: string;
+  usable_calls: number;
 }
 
 export interface SyntheticDataStatus {
@@ -373,6 +406,20 @@ export function fetchDashboardInsights(
   query.set('range', range);
   query.set('data_mode', dataMode);
   return request<DashboardInsights>(`/api/dashboard/insights?${query}`);
+}
+
+/** LLM-written highlights for the Key Insights card. Cached server-side per
+ *  filters + data snapshot, so repeat loads are free and new analyzed calls
+ *  refresh it automatically. */
+export function fetchAiInsights(
+  range: TimeRangeKey,
+  filters: DashboardFilters,
+  dataMode: DataMode = 'live',
+): Promise<AiInsight> {
+  const query = filterParams(filters);
+  query.set('range', range);
+  query.set('data_mode', dataMode);
+  return request<AiInsight>(`/api/dashboard/insights/ai?${query}`);
 }
 
 export function fetchDashboardPlants(dataMode: DataMode = 'live'): Promise<DashboardPlants> {

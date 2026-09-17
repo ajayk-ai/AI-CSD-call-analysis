@@ -23,15 +23,20 @@ from app.db.session import get_db
 from app.schemas.dashboard import (
     ActiveFiltersOut,
     AgentStatsOut,
+    AiInsightOut,
     DailyRatingOut,
+    DailySentimentOut,
     DashboardAgentsOut,
     DashboardInsightsOut,
     DashboardPlantsOut,
     DashboardSummaryOut,
     InsightPairOut,
     MonthlyAverageOut,
+    MonthlySentimentOut,
     SliceOut,
 )
+from app.services.agent_names import UNASSIGNED_AGENT, build_agent_name_map, canonical_agent, raw_names_for
+from app.services.ai_insights_service import generate_ai_insight, get_or_create
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -85,7 +90,7 @@ _NOT_GIVEN_BAND = "Not Given"
 _BAND_ORDER = [_SATISFIED_BAND, _BORDERLINE_BAND, _UNSATISFIED_BAND]
 _BAND_ORDER_STATED = [_SATISFIED_BAND, _BORDERLINE_BAND, _UNSATISFIED_BAND, _NOT_GIVEN_BAND]
 
-_UNASSIGNED_AGENT = "Unassigned"
+_UNASSIGNED_AGENT = UNASSIGNED_AGENT
 
 _MONTH_ABBR = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 
@@ -227,11 +232,13 @@ class KpiFilters:
         return ActiveFiltersOut(**asdict(self))
 
 
-def _analysis_conditions(filters: KpiFilters, rating_source: str) -> list:
+def _analysis_conditions(filters: KpiFilters, rating_source: str, agent_map: dict[str, str]) -> list:
     """Predicates on `CallAnalysis` for whichever filters are active."""
     conditions = []
     if filters.agent is not None:
-        conditions.append(CallAnalysis.agent_name == filters.agent)
+        # filters.agent is a canonical name (see app.services.agent_names) —
+        # match every raw spelling variant it groups, not just one string.
+        conditions.append(CallAnalysis.agent_name.in_(raw_names_for(filters.agent, agent_map)))
     if filters.sentiment is not None:
         conditions.append(CallAnalysis.sentiment == Sentiment(filters.sentiment))
     if filters.connection is not None:
@@ -270,8 +277,10 @@ def _category_exists(category: str):
     )
 
 
-def _with_kpi_filters(stmt: Select, filters: KpiFilters, rating_source: str = "ai") -> Select:
-    conditions = _analysis_conditions(filters, rating_source)
+def _with_kpi_filters(
+    stmt: Select, filters: KpiFilters, agent_map: dict[str, str], rating_source: str = "ai"
+) -> Select:
+    conditions = _analysis_conditions(filters, rating_source, agent_map)
     if conditions:
         stmt = stmt.join(CallAnalysis, CallAnalysis.call_id == Call.id).where(*conditions)
     if filters.category is not None:
@@ -362,7 +371,7 @@ class _Aggregate:
         return slices
 
 
-def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
+def _aggregate(db: Session, call_ids: list[UUID], agent_map: dict[str, str]) -> _Aggregate:
     agg = _Aggregate()
     if not call_ids:
         return agg
@@ -375,7 +384,8 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
     # breakdown and the connection breakdown is measured over these.
     conversation_ids: set[UUID] = set()
     for analysis in analyses:
-        call_id_to_agent[analysis.call_id] = analysis.agent_name or _UNASSIGNED_AGENT
+        agent = canonical_agent(analysis.agent_name, agent_map)
+        call_id_to_agent[analysis.call_id] = agent
         agg.quality_counter[analysis.call_quality.value] += 1
 
         # Rejected calls are counted in the quality breakdown (that IS the
@@ -389,7 +399,7 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
         # (busy tone, voicemail, dead air, cut off at the greeting).
         agg.reachable_calls += 1
         agg.connection_counter[analysis.connection_status.value] += 1
-        agg.agent_reachable_analyses[analysis.agent_name or _UNASSIGNED_AGENT].append(analysis)
+        agg.agent_reachable_analyses[agent].append(analysis)
 
         # ...but from here on, only real conversations count. See
         # models.CONVERSATION_STATUSES for why this matters so much.
@@ -405,7 +415,7 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
             agg.stated_ratings.append(analysis.customer_stated_rating)
         else:
             agg.not_given_count += 1
-        agg.agent_usable_analyses[analysis.agent_name or _UNASSIGNED_AGENT].append(analysis)
+        agg.agent_usable_analyses[agent].append(analysis)
 
     if not conversation_ids:
         return agg
@@ -438,11 +448,27 @@ def _aggregate(db: Session, call_ids: list[UUID]) -> _Aggregate:
     return agg
 
 
+@dataclass
+class _TrendResult:
+    current_month_label: str | None
+    monthly_averages: list[MonthlyAverageOut]
+    daily_ratings: list[DailyRatingOut]
+    monthly_sentiment: list[MonthlySentimentOut]
+    daily_sentiment: list[DailySentimentOut]
+
+
 def _trend(
-    db: Session, plant: str | None, data_mode: str, filters: KpiFilters, rating_source: str
-) -> tuple[str | None, list[MonthlyAverageOut], list[DailyRatingOut]]:
+    db: Session,
+    plant: str | None,
+    data_mode: str,
+    filters: KpiFilters,
+    rating_source: str,
+    agent_map: dict[str, str],
+) -> _TrendResult:
     """Daily ratings for the most recent month present in the data, plus the
-    three months before it.
+    three months before it — and the same shape for sentiment, used by the
+    Overall Customer Sentiment card (three months of grouped positive/
+    neutral/negative bars, plus the current month's daily split as a line).
 
     Anchored on the latest call in the database rather than on today's clock:
     a dataset that stops in August should still render its August trend in
@@ -454,7 +480,7 @@ def _trend(
     own trend, not one still averaged in with everyone else.
     """
     stmt = (
-        select(_EFFECTIVE_DATE.label("day"), CallAnalysis.satisfaction_rating)
+        select(_EFFECTIVE_DATE.label("day"), CallAnalysis.satisfaction_rating, CallAnalysis.sentiment)
         .join(CallAnalysis, CallAnalysis.call_id == Call.id)
         .where(
             CallAnalysis.call_quality != CallQuality.REJECTED_CORRUPTED,
@@ -467,7 +493,7 @@ def _trend(
         stmt = stmt.where(plant_expr == plant)
     # CallAnalysis is already joined here, so the conditions apply directly
     # rather than through _with_kpi_filters (which would join it a second time).
-    conditions = _analysis_conditions(filters, rating_source)
+    conditions = _analysis_conditions(filters, rating_source, agent_map)
     if conditions:
         stmt = stmt.where(*conditions)
     if filters.category is not None:
@@ -477,16 +503,20 @@ def _trend(
         stmt = stmt.where(mode_filter)
     rows = db.execute(stmt).all()
     if not rows:
-        return None, [], []
+        return _TrendResult(None, [], [], [], [])
 
-    latest = max(day for day, _ in rows)
+    latest = max(day for day, _, _ in rows)
 
     per_day: dict[int, list[int]] = defaultdict(list)
     per_month: dict[tuple[int, int], list[int]] = defaultdict(list)
-    for day, rating in rows:
+    per_day_sentiment: "dict[int, Counter[str]]" = defaultdict(Counter)
+    per_month_sentiment: "dict[tuple[int, int], Counter[str]]" = defaultdict(Counter)
+    for day, rating, sentiment in rows:
         per_month[(day.year, day.month)].append(rating)
+        per_month_sentiment[(day.year, day.month)][sentiment.value] += 1
         if (day.year, day.month) == (latest.year, latest.month):
             per_day[day.day].append(rating)
+            per_day_sentiment[day.day][sentiment.value] += 1
 
     def _avg(values: list[int]) -> float:
         return round(sum(values) / len(values), 2)
@@ -495,11 +525,22 @@ def _trend(
         DailyRatingOut(day=day, rating=_avg(values), call_count=len(values))
         for day, values in sorted(per_day.items())
     ]
+    daily_sentiment = [
+        DailySentimentOut(
+            day=day,
+            positive=counts.get("positive", 0),
+            neutral=counts.get("neutral", 0),
+            negative=counts.get("negative", 0),
+            call_count=sum(counts.values()),
+        )
+        for day, counts in sorted(per_day_sentiment.items())
+    ]
 
     # Oldest first, so the bars read left-to-right chronologically. Months with
     # no calls are omitted rather than drawn as zero — a zero bar would read as
     # "everyone was furious" instead of "no data".
     monthly = []
+    monthly_sentiment = []
     for back in (3, 2, 1):
         key = _shift_month(latest.year, latest.month, back)
         values = per_month.get(key)
@@ -509,8 +550,25 @@ def _trend(
                     month=_month_label(*key), avg_rating=_avg(values), call_count=len(values)
                 )
             )
+        counts = per_month_sentiment.get(key)
+        if counts:
+            monthly_sentiment.append(
+                MonthlySentimentOut(
+                    month=f"{_MONTH_ABBR[key[1] - 1]} {key[0]}",
+                    positive=counts.get("positive", 0),
+                    neutral=counts.get("neutral", 0),
+                    negative=counts.get("negative", 0),
+                    call_count=sum(counts.values()),
+                )
+            )
 
-    return f"{_MONTH_ABBR[latest.month - 1]} {latest.year}", monthly, daily
+    return _TrendResult(
+        current_month_label=f"{_MONTH_ABBR[latest.month - 1]} {latest.year}",
+        monthly_averages=monthly,
+        daily_ratings=daily,
+        monthly_sentiment=monthly_sentiment,
+        daily_sentiment=daily_sentiment,
+    )
 
 
 @router.get("/plants", response_model=DashboardPlantsOut)
@@ -539,7 +597,14 @@ def get_dashboard_agents(
 ) -> DashboardAgentsOut:
     """Every distinct agent name seen in the data, for the Calls page's and
     the dashboard's agent filter/breakdown option lists. Unfiltered by range
-    or plant for the same reason as get_dashboard_plants."""
+    or plant for the same reason as get_dashboard_plants.
+
+    Returns canonical names (see app.services.agent_names) rather than raw
+    values — the same person transcribed as "Gautham"/"Gautam"/"Goutham"
+    collapses to one option, and rows where the model returned a sentence
+    instead of a name ("The agent's name is not mentioned in the audio.")
+    are dropped rather than offered as if they were real agents.
+    """
     stmt = (
         select(CallAnalysis.agent_name)
         .join(Call, Call.id == CallAnalysis.call_id)
@@ -548,8 +613,11 @@ def get_dashboard_agents(
     mode_filter = _data_mode_filter(data_mode)
     if mode_filter is not None:
         stmt = stmt.where(mode_filter)
-    agents = db.execute(stmt.distinct().order_by(CallAnalysis.agent_name)).scalars().all()
-    return DashboardAgentsOut(agents=list(agents))
+    raw_names = db.execute(stmt.distinct()).scalars().all()
+    agent_map = build_agent_name_map(db)
+    canonical_names = {canonical_agent(name, agent_map) for name in raw_names}
+    canonical_names.discard(_UNASSIGNED_AGENT)
+    return DashboardAgentsOut(agents=sorted(canonical_names))
 
 
 @router.get("/summary", response_model=DashboardSummaryOut)
@@ -611,14 +679,15 @@ def get_dashboard_summary(
         category=category,
     )
 
+    agent_map = build_agent_name_map(db)
     base_stmt = _base_call_stmt(cutoff, plant, data_mode)
 
     def _ids(selection: KpiFilters) -> list[UUID]:
-        return list(db.execute(_with_kpi_filters(base_stmt, selection, rating_source)).scalars().all())
+        return list(db.execute(_with_kpi_filters(base_stmt, selection, agent_map, rating_source)).scalars().all())
 
     call_ids = _ids(filters)
     total_calls = len(call_ids)
-    scoped = _aggregate(db, call_ids)
+    scoped = _aggregate(db, call_ids, agent_map)
 
     # A card that owns an active filter is rendered from the aggregate computed
     # WITHOUT that filter, so it keeps its full breakdown (with the selected
@@ -632,7 +701,7 @@ def get_dashboard_summary(
         if getattr(filters, dimension) is None:
             return scoped
         if dimension not in cache:
-            cache[dimension] = _aggregate(db, _ids(filters.without(dimension)))
+            cache[dimension] = _aggregate(db, _ids(filters.without(dimension)), agent_map)
         return cache[dimension]
 
     # by_agent must stay a full roster regardless of the current agent
@@ -692,7 +761,7 @@ def get_dashboard_summary(
         stats.sort(key=lambda s: s.average_rating if s.average_rating is not None else 0)
         return stats
 
-    current_month, monthly_averages, daily_ratings = _trend(db, plant, data_mode, filters, rating_source)
+    trend = _trend(db, plant, data_mode, filters, rating_source, agent_map)
 
     quality_source = _excluding("quality")
     connection_source = _excluding("connection")
@@ -742,9 +811,11 @@ def get_dashboard_summary(
         top_positive_themes=category_source.mentions(MentionType.POSITIVE_THEME),
         top_compliance_issues=category_source.mentions(MentionType.AGENT_COMPLIANCE),
         by_agent=_agent_stats(),
-        current_month_label=current_month,
-        monthly_averages=monthly_averages,
-        daily_ratings=daily_ratings,
+        current_month_label=trend.current_month_label,
+        monthly_averages=trend.monthly_averages,
+        daily_ratings=trend.daily_ratings,
+        monthly_sentiment=trend.monthly_sentiment,
+        daily_sentiment=trend.daily_sentiment,
     )
 
 
@@ -795,8 +866,9 @@ def get_dashboard_insights(
         adherence=adherence,
         category=category,
     )
+    agent_map = build_agent_name_map(db)
     call_ids = list(
-        db.execute(_with_kpi_filters(_base_call_stmt(cutoff, plant_upper, data_mode), filters))
+        db.execute(_with_kpi_filters(_base_call_stmt(cutoff, plant_upper, data_mode), filters, agent_map))
         .scalars()
         .all()
     )
@@ -859,3 +931,82 @@ def get_dashboard_insights(
         usable_calls=usable_calls,
         insights=insights,
     )
+
+
+@router.get("/insights/ai", response_model=AiInsightOut)
+def get_ai_insights(
+    db: Session = Depends(get_db),
+    time_range: str = Query("all", alias="range", pattern="^(1d|7d|1m|3m|all)$"),
+    plant: str | None = Query(
+        None,
+        pattern="^[A-Za-z]{2}$",
+        description="Filter to one plant (last 2 letters of the team code, e.g. 'CE' or 'TA'). Omit for all plants.",
+    ),
+    agent: str | None = Query(None, description=_AGENT_DESCRIPTION),
+    data_mode: str = Query("live", pattern="^(live|synthetic|all)$", description=_DATA_MODE_DESCRIPTION),
+    sentiment: str | None = Query(None, pattern="^(positive|neutral|negative)$", description=_FILTER_DESCRIPTION),
+    connection: str | None = Query(
+        None,
+        pattern="^(connected|dropped_during_call|dropped_at_greeting|no_answer_busy|voicemail_ivr_only|silent_dead_air)$",
+        description=_FILTER_DESCRIPTION,
+    ),
+    band: str | None = Query(None, description=_FILTER_DESCRIPTION),
+    quality: str | None = Query(
+        None, pattern="^(good_clear|partial_usable|rejected_corrupted)$", description=_FILTER_DESCRIPTION
+    ),
+    adherence: str | None = Query(
+        None, pattern="^(followed|partial|not_followed)$", description=_FILTER_DESCRIPTION
+    ),
+    category: str | None = Query(None, description=_FILTER_DESCRIPTION),
+) -> AiInsightOut:
+    """LLM-written highlights for the Key Insights card, loaded automatically.
+
+    Cached per (filters, data snapshot) — see ai_insights_service.get_or_create.
+    The snapshot is the analysis row count plus the newest analysis timestamp,
+    which changes whenever a call is analyzed, re-analyzed or removed, so new
+    data regenerates the highlights and anything else is served from cache.
+
+    Reuses get_dashboard_insights and get_dashboard_summary for the exact
+    numbers already on the page, so the highlights can't disagree with them.
+    Those are plain function calls, so every parameter is passed explicitly —
+    an omitted one would receive FastAPI's Query() placeholder, not its default.
+    """
+    plant_upper = plant.upper() if plant else None
+    analysis_count, latest_analysis = db.execute(
+        select(func.count(CallAnalysis.id), func.max(CallAnalysis.created_at))
+    ).one()
+    cache_key = (
+        time_range, plant_upper, agent, data_mode, sentiment, connection, band, quality, adherence, category,
+        analysis_count, latest_analysis,
+    )
+
+    def _produce() -> AiInsightOut:
+        common = dict(
+            db=db,
+            time_range=time_range,
+            plant=plant,
+            agent=agent,
+            data_mode=data_mode,
+            sentiment=sentiment,
+            connection=connection,
+            band=band,
+            quality=quality,
+            adherence=adherence,
+            category=category,
+        )
+        summary = get_dashboard_summary(**common, rating_source="ai")
+        if summary.usable_calls == 0:
+            raise HTTPException(status_code=422, detail="Not enough calls yet to build highlights.")
+        pairs = get_dashboard_insights(**common).insights
+        try:
+            insight = generate_ai_insight(summary, pairs)
+        except Exception as exc:  # noqa: BLE001 - surfaced as a clean 502, not a stack trace
+            raise HTTPException(status_code=502, detail="Highlights aren't available right now.") from exc
+        return AiInsightOut(
+            headline=insight.headline,
+            key_points=insight.key_points,
+            recommendation=insight.recommendation,
+            usable_calls=summary.usable_calls,
+        )
+
+    return get_or_create(cache_key, _produce)

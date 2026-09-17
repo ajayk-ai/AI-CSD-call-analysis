@@ -1,4 +1,3 @@
-import { RunAnalysisButton } from '../dashboard/RunAnalysisButton';
 import { useDashboardRefresh } from '../../state/dashboardContext';
 import './DashboardHeader.css';
 
@@ -48,8 +47,6 @@ export function DashboardHeader({ analyzedCalls, usableCalls }: DashboardHeaderP
         </div>
       </div>
       <div className="dashboard-header__right">
-        <RunAnalysisButton />
-        <div className="dashboard-header__divider" />
         <div className="dashboard-header__icon" aria-hidden="true">
           🎧
         </div>
