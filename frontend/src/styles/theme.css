@@ -10,6 +10,10 @@
   --border-card: rgba(15, 23, 42, 0.08);
   --border-card-strong: rgba(15, 23, 42, 0.16);
   --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04);
+  /* The lifted state of --shadow-card. Kept next to it so the two stay in
+     step; a hover shadow that doesn't match its resting shadow reads as a
+     different elevation rather than the same card raised. */
+  --shadow-card-hover: 0 16px 32px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.06);
 
   /* Neutral ink tint, as bare RGB components — use via rgba(var(--tint-neutral), X)
      for a border/hover/divider shade that reads correctly against light surfaces. */
@@ -18,16 +22,36 @@
   /* Section header tints — kept vivid/saturated on purpose: a colored band
      across the top of an otherwise white card is what keeps a bright theme
      from reading as flat, while the card body underneath stays light and
-     easy to read. */
+     easy to read.
+
+     Every stop here is dark enough to clear WCAG-AA (4.5:1) against
+     --text-on-header. That constraint caps how light the end stop can go:
+     #3b82f6 (blue) and #14b8a6 (teal) were previously used and fail at
+     3.68:1 and 2.49:1, so they end one step darker instead. */
   --header-panel: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
   --header-red: linear-gradient(135deg, #9f1239 0%, #e11d48 100%);
-  --header-blue: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
-  --header-teal: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+  --header-blue: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  --header-teal: linear-gradient(135deg, #0f766e 0%, #0e7490 100%);
+
+  /* Text sitting ON a --header-* band. Those bands are dark, so this does NOT
+     follow --text-primary, which is near-black for the light card body. */
+  --text-on-header: #ffffff;
+  /* The warm accent for that same dark band. --color-gold is an amber tuned for
+     white cards and reads 1.03:1 here — separated from navy by hue alone, with
+     almost no luminance difference. This is the dark-surface counterpart, and
+     the palest amber still isn't light enough below AA: amber-200 reaches only
+     4.15:1, so this sits at amber-100 / 4.64:1. */
+  --text-on-header-accent: #fef3c7;
 
   /* Semantic colors — deepened one step from their dark-theme values so they
      hold WCAG-AA contrast as text/icons on a white card (a hue tuned to pop
      off navy reads as washed-out on white at the same lightness). */
-  --color-good: #16a34a;
+  /* #16a34a was one step too light to meet the rule above: 3.30:1 as text on
+     a white card, against the 4.5:1 it needed. green-700 clears it at 5.02:1
+     and keeps the token in step with warning (amber-700) and info (blue-600). */
+  --color-good: #15803d;
+  /* The bright counterpart, for dark surfaces ONLY (the header's "refreshed"
+     dot). Do not use it as text on a card — it reads 2.28:1 there. */
   --color-good-alt: #22c55e;
   --color-warning: #b45309;
   --color-bad: #dc2626;
@@ -37,12 +61,24 @@
   /* Text */
   --text-primary: #0f172a;
   --text-secondary: #47536b;
-  --text-muted: #64748b;
+  /* #64748b failed as small print on the two lightest surfaces (3.94:1 on the
+     app background, 4.48:1 on a card footer). One step deeper clears 4.5:1
+     everywhere it's actually used. */
+  --text-muted: #57637a;
+
+  /* Primary action — the amber is deliberately the only warm colour in an
+     otherwise blue-grey UI, so the buttons that spend money on a Gemini run
+     never read as an incidental control. Clears AA on both gradient stops
+     (9.14:1 / 7.10:1) against --action-text. */
+  --action-bg: linear-gradient(135deg, #f5a623, #e08e0b);
+  --action-border: rgba(245, 166, 35, 0.5);
+  --action-text: #1a1206;
 
   /* Radius / spacing */
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 8px;
+  --radius-pill: 999px;
   --gap-lg: 20px;
   --gap-md: 14px;
   --gap-sm: 8px;

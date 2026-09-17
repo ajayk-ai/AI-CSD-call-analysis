@@ -62,26 +62,26 @@ export function RankedIssuesCard({
     {
       key: 'category',
       header: categoryHeader,
-      width: '24%',
+      width: '20%',
       render: (row) => (
         <span className="ranked-table__category">
           <span>{iconForCategory(row.key, fallbackIcon)}</span> {row.label}
         </span>
       ),
     },
-    { key: 'count', header: 'No. of Calls', align: 'right', width: '70px', render: (row) => row.count },
+    { key: 'count', header: 'Calls', align: 'right', width: '52px', render: (row) => row.count },
     {
       key: 'pct',
-      header: '% of Usable',
+      header: '% Usable',
       align: 'right',
-      width: '75px',
+      width: '62px',
       render: (row) => `${row.percentage.toFixed(1)}%`,
     },
     {
       key: 'split',
       header: 'Praise vs. Problem',
       align: 'right',
-      width: '110px',
+      width: '84px',
       render: (row) =>
         row.negative_share !== null ? (
           <span className="ranked-table__split" title={`Praised on ${row.positive_calls}, a problem on ${row.negative_calls}`}>
@@ -97,7 +97,9 @@ export function RankedIssuesCard({
       render: (row) => (
         <>
           {row.example ? (
-            <span className="ranked-table__example">"{row.example}"</span>
+            <span className="ranked-table__example" title={row.example}>
+              "{row.example}"
+            </span>
           ) : (
             <span className="ranked-table__example ranked-table__example--none">
               No quote captured
@@ -136,7 +138,7 @@ export function RankedIssuesCard({
     {
       key: 'review',
       header: '',
-      width: '110px',
+      width: '118px',
       render: (row) => (
         <OpenCallsButton
           filters={toCallFilters(data?.filters ?? {}, { category: row.key, conversations_only: true })}

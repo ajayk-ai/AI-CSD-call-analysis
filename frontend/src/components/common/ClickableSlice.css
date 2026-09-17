@@ -12,7 +12,7 @@
   width: 100%;
   padding: 4px 8px;
   margin: -4px -8px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }

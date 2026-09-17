@@ -53,5 +53,5 @@ table {
 
 ::-webkit-scrollbar-thumb {
   background: rgba(var(--tint-neutral), 0.2);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }

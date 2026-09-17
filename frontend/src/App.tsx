@@ -5,6 +5,7 @@ import { DataModeBanner } from './components/common/DataModeBanner';
 import { FilterChips } from './components/common/FilterChips';
 import { DashboardHeader } from './components/layout/DashboardHeader';
 import { TabNav } from './components/layout/TabNav';
+import { SectionNav } from './components/layout/SectionNav';
 import { CallQualitySummary } from './components/dashboard/CallQualitySummary';
 import { CallConnectionSummary } from './components/dashboard/CallConnectionSummary';
 import { SentimentOverview } from './components/dashboard/SentimentOverview';
@@ -47,6 +48,7 @@ function Dashboard() {
   const { plant, setPlant, plants } = usePlantFilter();
   const { agent, setAgent, agents } = useAgentFilter();
   const { filters } = useDashboardFilters();
+  const { section, setSection } = useNavigation();
 
   return (
     <div className="dashboard">
@@ -55,9 +57,12 @@ function Dashboard() {
         usableCalls={data?.usable_calls ?? 0}
       />
 
-      <div className="dashboard__filters">
-        <PlantFilter plants={plants} value={plant} onChange={setPlant} />
-        <AgentFilter agents={agents} value={agent} onChange={setAgent} />
+      <div className="dashboard__toolbar">
+        <div className="dashboard__filters">
+          <PlantFilter plants={plants} value={plant} onChange={setPlant} />
+          <AgentFilter agents={agents} value={agent} onChange={setAgent} />
+        </div>
+        <SectionNav active={section} onChange={setSection} />
       </div>
       <FilterChips />
       <DataModeBanner />
@@ -68,52 +73,70 @@ function Dashboard() {
         </div>
       )}
 
-      {/* "How are we performing" at a glance, then "why / what to do" —
-          both read off the same summary payload every card below also uses. */}
+      {/* The headline numbers stay above the sections, so the big picture is
+          on screen whichever group of detail cards is open. */}
       <KpiSummaryStrip data={data} />
 
-      <div className="dashboard__row dashboard__row--one">
-        <ExecutiveSummary data={data} error={error} filters={filters} />
-      </div>
+      {/* The dashboard is one screen tall (see .app-fit): the open section takes
+          whatever height is left and its cards share it. A list longer than its
+          card scrolls inside that card, so the page itself never scrolls.
+          Filters stay global across sections and show in <FilterChips>. */}
+      {section === 'overview' && (
+        <div className="dashboard__section dashboard__section--two">
+          <ExecutiveSummary data={data} error={error} filters={filters} />
+          <KeyInsights />
+        </div>
+      )}
 
-      <div className="dashboard__row dashboard__row--four">
-        <CallQualitySummary />
-        <SentimentOverview />
-        <SatisfactionRating />
-        <TrendComparison data={data} error={error} />
-      </div>
+      {section === 'customers' && (
+        <div className="dashboard__section dashboard__section--three">
+          <SentimentOverview />
+          <SatisfactionRating />
+          <TrendComparison data={data} error={error} />
+        </div>
+      )}
 
-      <div className="dashboard__row dashboard__row--two">
-        <CallConnectionSummary />
-        <AgentComplianceSummary />
-      </div>
+      {section === 'quality' && (
+        <div className="dashboard__section dashboard__section--two">
+          <CallQualitySummary />
+          <CallConnectionSummary />
+        </div>
+      )}
 
-      <div className="dashboard__row dashboard__row--two">
-        <IssueAnalysisTable data={data} error={error} />
-        <ServiceIssuesTable data={data} error={error} />
-      </div>
+      {section === 'issues' && (
+        <div className="dashboard__section dashboard__section--two">
+          <IssueAnalysisTable data={data} error={error} />
+          <ServiceIssuesTable data={data} error={error} />
+        </div>
+      )}
 
-      <div className="dashboard__row dashboard__row--two">
-        <ComplianceIssuesTable data={data} error={error} />
-        <KeyInsights />
-      </div>
+      {section === 'compliance' && (
+        <div className="dashboard__section dashboard__section--two">
+          <AgentComplianceSummary />
+          <ComplianceIssuesTable data={data} error={error} />
+        </div>
+      )}
 
-      <div className="dashboard__row dashboard__row--one">
-        <AgentPerformanceTable data={data} error={error} />
-      </div>
+      {section === 'agents' && (
+        <div className="dashboard__section">
+          <AgentPerformanceTable data={data} error={error} />
+        </div>
+      )}
     </div>
   );
 }
 
 function Shell() {
   const { tab, setTab } = useNavigation();
+  // Only the dashboard is locked to one screen; Calls and Admin are long
+  // lists and forms, so they keep normal page scrolling.
   return (
-    <>
+    <div className={tab === 'dashboard' ? 'app-fit' : undefined}>
       <TabNav active={tab} onChange={setTab} />
       {tab === 'dashboard' && <Dashboard />}
       {tab === 'calls' && <CallsPage />}
       {tab === 'admin' && <AdminPage />}
-    </>
+    </div>
   );
 }
 

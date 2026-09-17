@@ -65,13 +65,13 @@
 .schedule-panel__save {
   align-self: flex-start;
   appearance: none;
-  border: 1px solid rgba(245, 166, 35, 0.5);
-  background: linear-gradient(135deg, #f5a623, #e08e0b);
-  color: #1a1206;
+  border: 1px solid var(--action-border);
+  background: var(--action-bg);
+  color: var(--action-text);
   font-size: 12.5px;
   font-weight: 800;
   padding: 9px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
 }
 

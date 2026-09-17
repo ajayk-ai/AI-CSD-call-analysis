@@ -21,11 +21,11 @@
 }
 
 .trend-legend__swatch--bar {
-  background: #2563eb;
+  background: var(--color-info);
 }
 
 .trend-legend__swatch--line {
-  background: #16a34a;
+  background: var(--color-good);
   border-radius: 50%;
 }
 

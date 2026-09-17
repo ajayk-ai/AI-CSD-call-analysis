@@ -83,19 +83,19 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: help;
 }
 
 .kpi-flow__tier--audio {
   background: rgba(217, 119, 6, 0.12);
-  color: #b45309;
+  color: var(--color-warning);
   border: 1px solid rgba(217, 119, 6, 0.35);
 }
 
 .kpi-flow__tier--text {
   background: rgba(22, 163, 74, 0.12);
-  color: #16a34a;
+  color: var(--color-good);
   border: 1px solid rgba(22, 163, 74, 0.35);
 }
 
@@ -145,7 +145,7 @@
 .kpi-flow__note {
   margin: 0;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: rgba(59, 130, 246, 0.08);
   border: 1px solid rgba(59, 130, 246, 0.24);
   font-size: 11px;

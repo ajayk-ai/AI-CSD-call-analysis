@@ -13,7 +13,7 @@
 @media (hover: hover) {
   .card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.06);
+    box-shadow: var(--shadow-card-hover);
     border-color: var(--border-card-strong);
   }
 }
@@ -54,6 +54,14 @@
   flex-shrink: 0;
 }
 
+/* InfoTip's default styling (dark glyph on a faint dark wash) is built for the
+   light card body, where it's also used — on this dark band it disappears.
+   Inverted here only, so the light-surface usages stay as they are. */
+.card__header .info-tip__icon {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1e3a8a;
+}
+
 .card__heading {
   min-width: 0;
 }
@@ -65,12 +73,16 @@
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--text-primary);
+  color: var(--text-on-header);
 }
 
+/* Same colour as the title rather than a dimmer tint: no tint light enough to
+   read as "secondary" clears 4.5:1 on these bands. Weight carries the
+   hierarchy instead. */
 .card__subtitle {
   font-size: 11px;
-  color: var(--text-secondary);
+  font-weight: 400;
+  color: var(--text-on-header);
   margin-top: 2px;
 }
 

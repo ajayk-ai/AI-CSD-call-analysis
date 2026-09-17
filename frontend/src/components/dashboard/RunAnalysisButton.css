@@ -11,14 +11,14 @@
   align-items: center;
   gap: 8px;
   appearance: none;
-  border: 1px solid rgba(245, 166, 35, 0.5);
-  background: linear-gradient(135deg, #f5a623, #e08e0b);
-  color: #1a1206;
+  border: 1px solid var(--action-border);
+  background: var(--action-bg);
+  color: var(--action-text);
   font-size: 12.5px;
   font-weight: 800;
   letter-spacing: 0.02em;
   padding: 9px 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   white-space: nowrap;
   transition: filter 0.15s ease, transform 0.1s ease;
@@ -42,7 +42,7 @@
   height: 12px;
   border-radius: 50%;
   border: 2px solid rgba(26, 18, 6, 0.35);
-  border-top-color: #1a1206;
+  border-top-color: var(--action-text);
   animation: run-analysis-spin 0.7s linear infinite;
 }
 

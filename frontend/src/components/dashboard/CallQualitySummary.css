@@ -11,7 +11,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   flex: 1;
   min-width: 0;
 }
@@ -47,13 +47,16 @@
   color: var(--text-secondary);
 }
 
-/* Wraps a slice's clickable legend row + its "Review N" action underneath. */
+/* A slice's clickable legend row with its "Review N" action beside it, not
+   underneath — stacked, every slice took two lines and the six-slice
+   connection card overflowed its box. */
 .call-quality__legend li {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .call-quality__legend-review {
-  padding-left: 20px; /* aligns under the label, past the dot */
+  flex-shrink: 0;
 }

@@ -19,7 +19,7 @@
   font-size: 11.5px;
   font-weight: 700;
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   white-space: nowrap;
   margin-left: auto;

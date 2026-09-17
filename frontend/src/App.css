@@ -1,41 +1,45 @@
+/* The dashboard tab is exactly one screen tall and never scrolls as a page.
+   min-height is the floor: below it the cards would be too short to read, so
+   the page scrolls a little rather than crush them. 600px keeps a 1366x768
+   laptop (about 650px of browser viewport) scroll-free. */
+.app-fit {
+  height: 100vh;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-fit .tab-nav {
+  flex: none;
+  padding-top: 8px;
+}
+
+.app-fit .dashboard {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
 .dashboard {
   max-width: 1600px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 10px 20px 14px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
 }
 
-.dashboard__row {
-  display: grid;
-  gap: 20px;
-  align-items: stretch;
+.dashboard > * {
+  flex: none;
 }
 
-.dashboard__row--four {
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.dashboard__row--two {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.dashboard__row--one {
-  grid-template-columns: 1fr;
-}
-
-@media (max-width: 1400px) {
-  .dashboard__row--four {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 720px) {
-  .dashboard__row--four,
-  .dashboard__row--two {
-    grid-template-columns: 1fr;
-  }
+.dashboard__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  flex-wrap: wrap;
 }
 
 .dashboard__filters {
@@ -45,9 +49,56 @@
   flex-wrap: wrap;
 }
 
-/* Shown whenever the global agent filter is active — a constant reminder
-   that every card below has been recontextualized, not just the ones the
-   user originally asked about. */
+/* The open section fills the height left under the header, toolbar and KPI
+   tiles. Tracks are minmax(0, 1fr) so a card's content can never push its
+   row taller than the screen; the card body scrolls instead. */
+.dashboard > .dashboard__section {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.dashboard__section > * {
+  min-height: 0;
+}
+
+.dashboard__section .card__header {
+  padding: 10px 16px;
+}
+
+.dashboard__section .card__body {
+  padding: 12px 16px;
+  overflow: auto;
+}
+
+.dashboard__section--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard__section--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Narrow screens: one card per row and normal page scrolling — a phone-width
+   column can't hold a section inside one screen and stay readable. */
+@media (max-width: 900px) {
+  .app-fit {
+    height: auto;
+    overflow: visible;
+  }
+
+  .dashboard > .dashboard__section {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dashboard__section .card__body {
+    overflow: visible;
+  }
+}
+
 /* Connection/error banner: shown when the summary endpoint is unreachable, so
    the page says WHY it is empty instead of just rendering blank cards. */
 .dashboard__banner {

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { CallFilters } from '../services/api';
 import type { TabKey } from '../components/layout/TabNav';
+import type { DashboardSection } from '../components/layout/SectionNav';
 
 /**
  * Moving between tabs with a filter in hand.
@@ -19,6 +20,10 @@ import type { TabKey } from '../components/layout/TabNav';
 interface NavigationValue {
   tab: TabKey;
   setTab: (tab: TabKey) => void;
+  /** Held here rather than in the dashboard, so a "Review calls" round trip
+   *  returns to the section the user left instead of resetting to Overview. */
+  section: DashboardSection;
+  setSection: (section: DashboardSection) => void;
   /** Filters to seed the Calls page with on its next mount; null = leave as-is. */
   pendingCallFilters: CallFilters | null;
   /** Jump to the Calls tab showing exactly these calls. */
@@ -31,6 +36,7 @@ const NavigationContext = createContext<NavigationValue | null>(null);
 
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<TabKey>('dashboard');
+  const [section, setSection] = useState<DashboardSection>('overview');
   const [pendingCallFilters, setPendingCallFilters] = useState<CallFilters | null>(null);
 
   const openCalls = useCallback((filters: CallFilters) => {
@@ -41,8 +47,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const consumeCallFilters = useCallback(() => setPendingCallFilters(null), []);
 
   const value = useMemo(
-    () => ({ tab, setTab, pendingCallFilters, openCalls, consumeCallFilters }),
-    [tab, pendingCallFilters, openCalls, consumeCallFilters],
+    () => ({ tab, setTab, section, setSection, pendingCallFilters, openCalls, consumeCallFilters }),
+    [tab, section, pendingCallFilters, openCalls, consumeCallFilters],
   );
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;

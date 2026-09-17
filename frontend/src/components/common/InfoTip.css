@@ -36,7 +36,7 @@
   max-width: 240px;
   padding: 7px 10px;
   border-radius: var(--radius-sm);
-  background: #0f172a;
+  background: var(--text-primary);
   color: #f2f6fc;
   font-size: 11px;
   font-weight: 500;
@@ -57,7 +57,7 @@
   left: 50%;
   transform: translateX(-50%);
   border: 5px solid transparent;
-  border-top-color: #0f172a;
+  border-top-color: var(--text-primary);
 }
 
 .info-tip:hover .info-tip__bubble,

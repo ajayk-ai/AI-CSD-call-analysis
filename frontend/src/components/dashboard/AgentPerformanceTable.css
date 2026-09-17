@@ -17,7 +17,7 @@
   font-size: inherit;
   padding: 3px 10px;
   margin: -3px -10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
